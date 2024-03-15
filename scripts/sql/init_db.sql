@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS film (
 
 DROP TABLE IF EXISTS actor_in_film;
 CREATE TABLE IF NOT EXISTS actor_in_film(
-                                            id_film SERIAL NOT NULL REFERENCES film(id)
+    id_film SERIAL NOT NULL REFERENCES film(id)
     ON DELETE CASCADE
     ON UPDATE CASCADE,
     id_actor SERIAL NOT NULL REFERENCES actor(id)

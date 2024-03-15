@@ -11,3 +11,14 @@ type FilmsResponse struct {
 	Total    uint64      `json:"total"`
 	Films    *[]FilmItem `json:"films"`
 }
+
+type FindFilmRequest struct {
+	Title           string  `json:"title"`
+	RatingFrom      float32 `json:"rating_from"`
+	RatingTo        float32 `json:"rating_to"`
+	ReleaseDateFrom string  `json:"release_date_from"`
+	ReleaseDateTo   string  `json:"release_date_to"`
+	Actor           string  `json:"actor"`
+	Page            uint64  `json:"page"`
+	PerPage         uint64  `json:"per_page"`
+}

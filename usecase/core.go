@@ -36,10 +36,20 @@ func GetCore(psxCfg *configs.DbPsxConfig, redisCfg *configs.DbRedisCfg, log *log
 	return core, nil
 }
 
-func (c *Core) GetAll(start uint64, end uint64, order bool) (*[]models.FilmItem, error) {
-	films, err := c.films.GetAllFilms(start, end, order)
+func (c *Core) GetAll(start uint64, end uint64) (*[]models.FilmItem, error) {
+	films, err := c.films.GetAllFilms(start, end)
 	if err != nil {
 		c.log.Error("GetAll error: ", err)
+		return nil, err
+	}
+
+	return films, nil
+}
+
+func (c *Core) GetFilms(request *models.FindFilmRequest) (*[]models.FilmItem, error) {
+	films, err := c.films.GetFilms(request)
+	if err != nil {
+		c.log.Error("GetFilms error: ", err)
 		return nil, err
 	}
 
