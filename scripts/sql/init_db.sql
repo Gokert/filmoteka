@@ -8,11 +8,11 @@ CREATE TABLE IF NOT EXISTS actor (
 
 DROP TABLE IF EXISTS film;
 CREATE TABLE IF NOT EXISTS film (
-                                    id              SERIAL NOT NULL PRIMARY KEY,
-                                    title           TEXT   NOT NULL,
-                                    info            TEXT   NOT NULL,
-                                    release_date    DATE NOT NULL,
-                                    rating          FLOAT NOT NULL
+    id              SERIAL NOT NULL PRIMARY KEY,
+    title           TEXT   NOT NULL,
+    info            TEXT   NOT NULL,
+    release_date    DATE NOT NULL,
+    rating          FLOAT NOT NULL
 );
 
 DROP TABLE IF EXISTS actor_in_film;
@@ -25,4 +25,12 @@ CREATE TABLE IF NOT EXISTS actor_in_film(
     ON UPDATE CASCADE,
 
     PRIMARY KEY(id_actor, id_film)
-    );
+);
+
+DROP TABLE IF EXISTS profile;
+CREATE TABLE IF NOT EXISTS profile (
+   id SERIAL PRIMARY KEY,
+   login TEXT NOT NULL UNIQUE DEFAULT '',
+   password TEXT NOT NULL DEFAULT '',
+   role TEXT NOT NULL DEFAULT 'user'
+);

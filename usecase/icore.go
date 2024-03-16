@@ -1,8 +1,14 @@
 package usecase
 
-import "filmoteka/pkg/models"
+import (
+	"context"
+	"filmoteka/pkg/models"
+)
 
 type ICore interface {
-	GetAll(start uint64, end uint64, order bool) (*[]models.FilmItem, error)
 	GetFilms(request *models.FindFilmRequest) (*[]models.FilmItem, error)
+	GetUserName(ctx context.Context, sid string) (string, error)
+	CreateSession(ctx context.Context, login string) (string, models.Session, error)
+	FindActiveSession(ctx context.Context, sid string) (bool, error)
+	KillSession(ctx context.Context, sid string) error
 }

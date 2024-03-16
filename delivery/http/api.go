@@ -5,6 +5,7 @@ import (
 	"filmoteka/pkg/models"
 	"filmoteka/usecase"
 	"github.com/sirupsen/logrus"
+	"io"
 	"net/http"
 	"strconv"
 )
@@ -12,7 +13,7 @@ import (
 type Api struct {
 	log  *logrus.Logger
 	mx   *http.ServeMux
-	core *usecase.Core
+	core usecase.ICore
 }
 
 func GetApi(core *usecase.Core, log *logrus.Logger) *Api {
@@ -22,8 +23,10 @@ func GetApi(core *usecase.Core, log *logrus.Logger) *Api {
 		mx:   http.NewServeMux(),
 	}
 
-	api.mx.HandleFunc("/films", api.GetFilms)
-	api.mx.HandleFunc("/films/find", api.FindFilms)
+	api.mx.HandleFunc("/api/v1/films", api.FindFilms)
+	api.mx.HandleFunc("/signin", api.Signin)
+	api.mx.HandleFunc("/authcheck", api.AuthAccept)
+	//api.mx.HandleFunc("/films/find", api.FindFilms)
 
 	return api
 }
@@ -52,7 +55,37 @@ func (a *Api) SendResponse(w http.ResponseWriter, r *http.Request, response *mod
 	if err != nil {
 		a.log.Error("Failed to send response: ", err.Error())
 	}
+}
 
+func (a *Api) Signin(w http.ResponseWriter, r *http.Request) {
+	response := models.Response{Status: http.StatusOK, Body: nil}
+	a.log.Info(r.Host, r.URL)
+
+	if r.Method != http.MethodPost {
+		response.Status = http.StatusMethodNotAllowed
+		a.SendResponse(w, r, &response)
+		return
+	}
+
+	var request models.SigninRequest
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		response.Status = http.StatusBadRequest
+		a.SendResponse(w, r, &response)
+		return
+	}
+
+	err = json.Unmarshal(body, &request)
+	if err != nil {
+		response.Status = http.StatusBadRequest
+		a.SendResponse(w, r, &response)
+		return
+	}
+
+	//_, err := a.core.
+
+	a.SendResponse(w, r, &response)
 }
 
 func (a *Api) FindFilms(w http.ResponseWriter, r *http.Request) {
@@ -69,6 +102,7 @@ func (a *Api) FindFilms(w http.ResponseWriter, r *http.Request) {
 	actor := r.URL.Query().Get("actor")
 	releaseDataFrom := r.URL.Query().Get("release_date_from")
 	releaseDataTo := r.URL.Query().Get("release_date_to")
+	order := r.URL.Query().Get("order")
 
 	RatingFrom, err := strconv.ParseFloat(r.URL.Query().Get("rating_from"), 32)
 	if err != nil {
@@ -82,10 +116,10 @@ func (a *Api) FindFilms(w http.ResponseWriter, r *http.Request) {
 
 	page, err := strconv.ParseUint(r.URL.Query().Get("page"), 10, 64)
 	if err != nil {
-		page = 1
+		page = 0
 	}
 
-	pageSize, err := strconv.ParseUint(r.URL.Query().Get("page_size"), 10, 64)
+	pageSize, err := strconv.ParseUint(r.URL.Query().Get("per_page"), 10, 64)
 	if err != nil {
 		pageSize = 8
 	}
@@ -99,20 +133,25 @@ func (a *Api) FindFilms(w http.ResponseWriter, r *http.Request) {
 		Actor:           actor,
 		Page:            page,
 		PerPage:         pageSize,
+		Order:           order,
 	}
 
-	_, err = a.core.GetFilms(request)
+	films, err := a.core.GetFilms(request)
 	if err != nil {
 		return
 	}
 
-	//a.log.Info(request)
+	response.Body = &models.FilmsResponse{
+		Total: len(*films),
+		Films: films,
+	}
 
+	a.SendResponse(w, r, &response)
 }
 
-func (a *Api) GetFilms(w http.ResponseWriter, r *http.Request) {
+func (a *Api) AuthAccept(w http.ResponseWriter, r *http.Request) {
 	response := models.Response{Status: http.StatusOK, Body: nil}
-	a.log.Info(r.Host, r.URL)
+	var authorized bool
 
 	if r.Method != http.MethodGet {
 		response.Status = http.StatusMethodNotAllowed
@@ -120,29 +159,28 @@ func (a *Api) GetFilms(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	page, err := strconv.ParseUint(r.URL.Query().Get("page"), 10, 64)
-	if err != nil {
-		page = 1
+	session, err := r.Cookie("session_id")
+	if err == nil && session != nil {
+		authorized, _ = a.core.FindActiveSession(r.Context(), session.Value)
 	}
 
-	pageSize, err := strconv.ParseUint(r.URL.Query().Get("page_size"), 10, 64)
-	if err != nil {
-		pageSize = 8
+	if !authorized {
+		response.Status = http.StatusUnauthorized
+		a.SendResponse(w, r, &response)
+		return
 	}
 
-	films, err := a.core.GetAll((page-1)*pageSize, pageSize)
+	login, err := a.core.GetUserName(r.Context(), session.Value)
 	if err != nil {
-		a.log.Error("get films error: ", err.Error())
+		a.log.Error("auth accept error: ", err.Error())
 		response.Status = http.StatusInternalServerError
 		a.SendResponse(w, r, &response)
 		return
 	}
 
-	response.Body = models.FilmsResponse{
-		Page:     page,
-		PageSize: pageSize,
-		Total:    uint64(len(*films)),
-		Films:    films,
+	response.Body = models.AuthCheckResponse{
+		Login: login,
+		Role:  "hui",
 	}
 
 	a.SendResponse(w, r, &response)

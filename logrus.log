@@ -1,0 +1,4 @@
+time="2024-03-16T01:14:45+03:00" level=info msg="logrus initialized"
+time="2024-03-16T01:14:46+03:00" level=info msg="Psx created successful"
+time="2024-03-16T01:14:46+03:00" level=info msg="Redis created successful"
+time="2024-03-16T01:14:46+03:00" level=info msg="Server running"

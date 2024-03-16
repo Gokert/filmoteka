@@ -5,11 +5,26 @@ type Response struct {
 	Body   any `json:"body"`
 }
 
+//type FilmsResponse struct {
+//	Page     uint64      `json:"current_page"`
+//	PageSize uint64      `json:"page_size"`
+//	Total    uint64      `json:"total"`
+//	Films    *[]FilmItem `json:"films"`
+//}
+
 type FilmsResponse struct {
-	Page     uint64      `json:"current_page"`
-	PageSize uint64      `json:"page_size"`
-	Total    uint64      `json:"total"`
-	Films    *[]FilmItem `json:"films"`
+	Total int         `json:"total"`
+	Films *[]FilmItem `json:"films"`
+}
+
+type SigninRequest struct {
+	Login    string `json:"login"`
+	Password string `json:"password"`
+}
+
+type AuthCheckResponse struct {
+	Login string `json:"login"`
+	Role  string `json:"role"`
 }
 
 type FindFilmRequest struct {
@@ -21,4 +36,5 @@ type FindFilmRequest struct {
 	Actor           string  `json:"actor"`
 	Page            uint64  `json:"page"`
 	PerPage         uint64  `json:"per_page"`
+	Order           string  `json:"order"`
 }
