@@ -82,6 +82,21 @@ func (c *Core) AddActor(actor *models.ActorItem) (uint64, error) {
 	return actorId, nil
 }
 
+func (c *Core) SearchFilms(titleFilm string, nameActor string, page uint64, perPage uint64) ([]models.FilmItem, error) {
+	films, err := c.films.SearchFilms(titleFilm, nameActor, page, perPage)
+	if err != nil {
+		c.log.Error("SearchFilms error: ", err.Error())
+		return nil, err
+	}
+
+	return films, nil
+}
+
+func (c *Core) DeleteFilm(filmId uint64) (bool, error) {
+
+	return true, nil
+}
+
 func (c *Core) GetUserName(ctx context.Context, sid string) (string, error) {
 	c.mutex.RLock()
 	login, err := c.sessions.GetUserLogin(ctx, sid, c.log)

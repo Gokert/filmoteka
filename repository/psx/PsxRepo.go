@@ -131,35 +131,72 @@ func (repo *PsxRepo) GetFilms(request *models.FindFilmRequest) (*[]models.FilmIt
 	return &films, err
 }
 
+func (repo *PsxRepo) SearchFilms(titleFilm string, nameActor string, page uint64, perPage uint64) ([]models.FilmItem, error) {
+	films := make([]models.FilmItem, 0, perPage)
+	var s strings.Builder
+
+	s.WriteString("SELECT film.id ,film.title, film.info, film.rating, film.release_date FROM film " +
+		"LEFT JOIN actor_in_film ON actor_in_film.id_film = film.id " +
+		"LEFT JOIN actor ON actor_in_film.id_actor = actor.id ")
+
+	s.WriteString("WHERE film.title LIKE '%' || $1 || '%' AND actor.name LIKE '%' || $2 || '%'")
+	s.WriteString("ORDER BY film.rating DESC ")
+	s.WriteString("OFFSET $3 LIMIT $4 ")
+
+	rows, err := repo.DB.Query(s.String(), titleFilm, nameActor, page, perPage)
+	if err != nil {
+		return nil, fmt.Errorf("find film err: %w", err)
+	}
+	defer rows.Close()
+
+	fmt.Println(page, perPage)
+
+	for rows.Next() {
+		post := models.FilmItem{}
+		err := rows.Scan(&post.Id, &post.Title, &post.Info, &post.Rating, &post.ReleaseDate)
+		if err != nil {
+			return nil, fmt.Errorf("find film scan err: %w", err)
+		}
+		films = append(films, post)
+	}
+
+	return films, nil
+}
+
+func (repo *PsxRepo) DeleteFilm(filmId uint64) (bool, error) {
+
+	return true, nil
+}
+
+func (repo *PsxRepo) SearchActors(nameActor string) (*[]models.ActorItem, error) {
+
+	return nil, nil
+}
+
 func (repo *PsxRepo) AddFilm(film *models.FilmRequest) (uint64, error) {
-	result, err := repo.DB.Exec("INSERT INTO film(title, info, release_date, rating ) VALUES($1, $2, $3, $4)", film.Title, film.Info, film.ReleaseDate, film.Rating)
+	err := repo.DB.QueryRow("INSERT INTO film(title, info, release_date, rating) VALUES($1, $2, $3, $4) RETURNING id",
+		film.Title, film.Info, film.ReleaseDate, film.Rating).Scan(&film.Id)
 	if err != nil {
 		return 0, fmt.Errorf("AddFilm err: %w", err)
 	}
 
-	lastID, err := result.LastInsertId()
-	if err != nil {
-		return 0, fmt.Errorf("getting LastInsertId err: %w", err)
-	}
-
-	return uint64(lastID), nil
+	return film.Id, nil
 }
 
 func (repo *PsxRepo) AddActor(actor *models.ActorItem) (uint64, error) {
-	result, err := repo.DB.Exec("INSERT INTO actor(name, gen, birthdate) VALUES($1, $2, $3)", actor.Name, actor.Gender, actor.Birthday)
+	err := repo.DB.QueryRow("INSERT INTO actor(name, gen, birthdate) VALUES($1, $2, $3) RETURNING id", actor.Name, actor.Gender, actor.Birthday).Scan(&actor.Id)
 	if err != nil {
 		return 0, fmt.Errorf("AddActor err: %w", err)
 	}
 
-	lastID, err := result.LastInsertId()
-	if err != nil {
-		return 0, fmt.Errorf("getting LastInsertId err: %w", err)
-	}
-
-	return uint64(lastID), nil
+	return actor.Id, nil
 }
 
 func (repo *PsxRepo) AddActorsForFilm(filmId uint64, actors []uint64) error {
+	if len(actors) == 0 {
+		return nil
+	}
+
 	var s strings.Builder
 	var params []interface{}
 	params = append(params, filmId)
@@ -169,7 +206,7 @@ func (repo *PsxRepo) AddActorsForFilm(filmId uint64, actors []uint64) error {
 		if i != 0 {
 			s.WriteString(",")
 		}
-		s.WriteString("($1, $" + strconv.Itoa(i) + ")")
+		s.WriteString("($1, $" + strconv.Itoa(i+2) + ")")
 		params = append(params, actor)
 	}
 

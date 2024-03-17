@@ -29,14 +29,16 @@ func GetApi(core *usecase.Core, log *logrus.Logger) *Api {
 	api.mx.HandleFunc("/authcheck", api.AuthAccept)
 
 	//api.mx.HandleFunc("/api/v1/actors", nil)
-	//api.mx.HandleFunc("/api/v1/actors/add", nil)
+	//api.mx.HandleFunc("/api/v1/actors/search", api.SearchActors)
+	api.mx.HandleFunc("/api/v1/actors/add", api.AddActor)
 	//api.mx.HandleFunc("/api/v1/actors/change", nil)
 	//api.mx.HandleFunc("/api/v1/actors/delete", nil)
 
-	api.mx.HandleFunc("/api/v1/films", api.FindFilms)   //??
-	api.mx.HandleFunc("/api/v1/films/add", api.AddFilm) //??
-	//api.mx.HandleFunc("/api/v1/films/change", nil)    //??
-	//api.mx.HandleFunc("/api/v1/films/delete", nil)    //??
+	api.mx.HandleFunc("/api/v1/films", api.FindFilms)
+	api.mx.HandleFunc("/api/v1/films/search", api.SearchFilms)
+	api.mx.HandleFunc("/api/v1/films/add", api.AddFilm)
+	//api.mx.HandleFunc("/api/v1/films/change", nil)
+	api.mx.HandleFunc("/api/v1/films/delete", api.DeleteFilm) //??
 
 	return api
 }
@@ -212,6 +214,8 @@ func (a *Api) AddFilm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	a.log.Info("info", request.Info, request.Title, request.Rating, request.Rating)
+
 	_, err = a.core.AddFilm(&request, request.Actors)
 	if err != nil {
 		response.Status = http.StatusInternalServerError
@@ -220,6 +224,77 @@ func (a *Api) AddFilm(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//response.Body = request
+
+	a.SendResponse(w, r, &response)
+}
+
+func (a *Api) AddActor(w http.ResponseWriter, r *http.Request) {
+	response := models.Response{Status: http.StatusOK, Body: nil}
+	a.log.Info(r.Host, r.URL)
+
+	if r.Method != http.MethodPost {
+		response.Status = http.StatusMethodNotAllowed
+		a.SendResponse(w, r, &response)
+		return
+	}
+
+	var request models.ActorItem
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		response.Status = http.StatusBadRequest
+		a.SendResponse(w, r, &response)
+		return
+	}
+
+	err = json.Unmarshal(body, &request)
+	if err != nil {
+		response.Status = http.StatusInternalServerError
+		a.SendResponse(w, r, &response)
+		return
+	}
+
+	_, err = a.core.AddActor(&request)
+	if err != nil {
+		response.Status = http.StatusInternalServerError
+		a.SendResponse(w, r, &response)
+		return
+	}
+
+	a.SendResponse(w, r, &response)
+}
+
+func (a *Api) SearchFilms(w http.ResponseWriter, r *http.Request) {
+	response := models.Response{Status: http.StatusOK, Body: nil}
+	a.log.Info(r.Host, r.URL)
+
+	if r.Method != http.MethodGet {
+		response.Status = http.StatusMethodNotAllowed
+		a.SendResponse(w, r, &response)
+		return
+	}
+
+	titleFilm := r.URL.Query().Get("title_film")
+	nameActor := r.URL.Query().Get("name_actor")
+
+	page, err := strconv.ParseUint(r.URL.Query().Get("page"), 10, 64)
+	if err != nil {
+		page = 0
+	}
+
+	pageSize, err := strconv.ParseUint(r.URL.Query().Get("per_page"), 10, 64)
+	if err != nil {
+		pageSize = 8
+	}
+
+	films, err := a.core.SearchFilms(titleFilm, nameActor, page, pageSize)
+	if err != nil {
+		response.Status = http.StatusInternalServerError
+		a.SendResponse(w, r, &response)
+		return
+	}
+
+	response.Body = films
 
 	a.SendResponse(w, r, &response)
 }
@@ -281,6 +356,21 @@ func (a *Api) FindFilms(w http.ResponseWriter, r *http.Request) {
 		Total: len(*films),
 		Films: films,
 	}
+
+	a.SendResponse(w, r, &response)
+}
+
+func (a *Api) DeleteFilm(w http.ResponseWriter, r *http.Request) {
+	response := models.Response{Status: http.StatusOK, Body: nil}
+	a.log.Info(r.Host, r.URL)
+
+	if r.Method != http.MethodDelete {
+		response.Status = http.StatusMethodNotAllowed
+		a.SendResponse(w, r, &response)
+		return
+	}
+
+	//filmId := r.URL.Query().Get("film_id")
 
 	a.SendResponse(w, r, &response)
 }

@@ -8,6 +8,8 @@ import (
 type ICore interface {
 	GetFilms(request *models.FindFilmRequest) (*[]models.FilmItem, error)
 	AddFilm(film *models.FilmRequest, actors []uint64) (uint64, error)
+	SearchFilms(titleFilm string, nameActor string, page uint64, perPage uint64) ([]models.FilmItem, error)
+	DeleteFilm(filmId uint64) (bool, error)
 
 	AddActor(actor *models.ActorItem) (uint64, error)
 
