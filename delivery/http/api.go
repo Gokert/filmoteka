@@ -23,10 +23,20 @@ func GetApi(core *usecase.Core, log *logrus.Logger) *Api {
 		mx:   http.NewServeMux(),
 	}
 
-	api.mx.HandleFunc("/api/v1/films", api.FindFilms)
 	api.mx.HandleFunc("/signin", api.Signin)
+	api.mx.HandleFunc("/signup", api.Signup)
+	api.mx.HandleFunc("/logout", api.Logout)
 	api.mx.HandleFunc("/authcheck", api.AuthAccept)
-	//api.mx.HandleFunc("/films/find", api.FindFilms)
+
+	//api.mx.HandleFunc("/api/v1/actors", nil)
+	//api.mx.HandleFunc("/api/v1/actors/add", nil)
+	//api.mx.HandleFunc("/api/v1/actors/change", nil)
+	//api.mx.HandleFunc("/api/v1/actors/delete", nil)
+
+	api.mx.HandleFunc("/api/v1/films", api.FindFilms)   //??
+	api.mx.HandleFunc("/api/v1/films/add", api.AddFilm) //??
+	//api.mx.HandleFunc("/api/v1/films/change", nil)    //??
+	//api.mx.HandleFunc("/api/v1/films/delete", nil)    //??
 
 	return api
 }
@@ -67,7 +77,75 @@ func (a *Api) Signin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var authorized bool
+
+	sessionCookie, err := r.Cookie("session_id")
+	if err == nil && sessionCookie != nil {
+		authorized, _ = a.core.FindActiveSession(r.Context(), sessionCookie.Value)
+	}
+
+	if authorized {
+		response.Status = http.StatusOK
+		a.SendResponse(w, r, &response)
+		return
+	}
+
 	var request models.SigninRequest
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		a.log.Error("Signin error: ", err.Error())
+		response.Status = http.StatusBadRequest
+		a.SendResponse(w, r, &response)
+		return
+	}
+
+	err = json.Unmarshal(body, &request)
+	if err != nil {
+		a.log.Error("Signin error: ", err.Error())
+		response.Status = http.StatusBadRequest
+		a.SendResponse(w, r, &response)
+		return
+	}
+
+	_, found, err := a.core.FindUserAccount(request.Login, request.Password)
+	if err != nil {
+		a.log.Error("Signin error: ", err.Error())
+		response.Status = http.StatusInternalServerError
+		a.SendResponse(w, r, &response)
+		return
+	}
+
+	if !found {
+		response.Status = http.StatusUnauthorized
+		a.SendResponse(w, r, &response)
+		return
+	}
+
+	session, _ := a.core.CreateSession(r.Context(), request.Login)
+	cookie := &http.Cookie{
+		Name:     "session_id",
+		Value:    session.SID,
+		Path:     "/",
+		Expires:  session.ExpiresAt,
+		HttpOnly: true,
+	}
+	http.SetCookie(w, cookie)
+
+	a.SendResponse(w, r, &response)
+}
+
+func (a *Api) Signup(w http.ResponseWriter, r *http.Request) {
+	response := models.Response{Status: http.StatusOK, Body: nil}
+	a.log.Info(r.Host, r.URL)
+
+	if r.Method != http.MethodPost {
+		response.Status = http.StatusMethodNotAllowed
+		a.SendResponse(w, r, &response)
+		return
+	}
+
+	var request models.SignupRequest
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -78,12 +156,70 @@ func (a *Api) Signin(w http.ResponseWriter, r *http.Request) {
 
 	err = json.Unmarshal(body, &request)
 	if err != nil {
+		response.Status = http.StatusInternalServerError
+		a.SendResponse(w, r, &response)
+		return
+	}
+
+	found, err := a.core.FindUserByLogin(request.Login)
+	if err != nil {
+		a.log.Error("Signup error: ", err.Error())
+		response.Status = http.StatusInternalServerError
+		a.SendResponse(w, r, &response)
+		return
+	}
+
+	if found {
+		response.Status = http.StatusConflict
+		a.SendResponse(w, r, &response)
+		return
+	}
+
+	err = a.core.CreateUserAccount(request.Login, request.Password)
+	if err != nil {
+		a.log.Error("create user error: ", err.Error())
 		response.Status = http.StatusBadRequest
 		a.SendResponse(w, r, &response)
 		return
 	}
 
-	//_, err := a.core.
+	a.SendResponse(w, r, &response)
+}
+
+func (a *Api) AddFilm(w http.ResponseWriter, r *http.Request) {
+	response := models.Response{Status: http.StatusOK, Body: nil}
+	a.log.Info(r.Host, r.URL)
+
+	if r.Method != http.MethodPost {
+		response.Status = http.StatusMethodNotAllowed
+		a.SendResponse(w, r, &response)
+		return
+	}
+
+	var request models.FilmRequest
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		response.Status = http.StatusBadRequest
+		a.SendResponse(w, r, &response)
+		return
+	}
+
+	err = json.Unmarshal(body, &request)
+	if err != nil {
+		response.Status = http.StatusInternalServerError
+		a.SendResponse(w, r, &response)
+		return
+	}
+
+	_, err = a.core.AddFilm(&request, request.Actors)
+	if err != nil {
+		response.Status = http.StatusInternalServerError
+		a.SendResponse(w, r, &response)
+		return
+	}
+
+	//response.Body = request
 
 	a.SendResponse(w, r, &response)
 }
@@ -144,6 +280,33 @@ func (a *Api) FindFilms(w http.ResponseWriter, r *http.Request) {
 	response.Body = &models.FilmsResponse{
 		Total: len(*films),
 		Films: films,
+	}
+
+	a.SendResponse(w, r, &response)
+}
+
+func (a *Api) Logout(w http.ResponseWriter, r *http.Request) {
+	response := models.Response{Status: http.StatusOK, Body: nil}
+	a.log.Info(r.Host, r.URL)
+
+	if r.Method != http.MethodDelete {
+		response.Status = http.StatusMethodNotAllowed
+		a.SendResponse(w, r, &response)
+		return
+	}
+
+	cookie, err := r.Cookie("session_id")
+	if err != nil {
+		response.Status = http.StatusBadRequest
+		a.SendResponse(w, r, &response)
+		return
+	}
+
+	err = a.core.KillSession(r.Context(), cookie.Value)
+	if err != nil {
+		response.Status = http.StatusInternalServerError
+		a.SendResponse(w, r, &response)
+		return
 	}
 
 	a.SendResponse(w, r, &response)

@@ -1,4 +1,4 @@
-package psx_repo
+package psx
 
 import (
 	"database/sql"
@@ -7,7 +7,6 @@ import (
 	"filmoteka/pkg/models"
 	"fmt"
 	_ "github.com/jackc/pgx/stdlib"
-	"github.com/lib/pq"
 	"github.com/sirupsen/logrus"
 	"strconv"
 	"strings"
@@ -36,32 +35,6 @@ func GetFilmRepo(config *configs.DbPsxConfig, log *logrus.Logger) (*PsxRepo, err
 	return &PsxRepo{DB: db}, nil
 }
 
-func (repo *PsxRepo) GetAllFilms(start uint64, end uint64) (*[]models.FilmItem, error) {
-	films := make([]models.FilmItem, 0, end-start)
-
-	rows, err := repo.DB.Query("SELECT film.id, film.title, film.rating, film.info from film "+
-		"ORDER BY rating DESC "+
-		"OFFSET $1 LIMIT $2",
-		start, end)
-
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, fmt.Errorf("GetFilms error: %w", err)
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		post := models.FilmItem{}
-		err = rows.Scan(&post.Id, &post.Info, &post.Rating, &post.ReleaseDate)
-		if err != nil {
-			return nil, fmt.Errorf("GetFilms scan error: %w", err)
-		}
-
-		films = append(films, post)
-	}
-
-	return &films, nil
-}
-
 func (repo *PsxRepo) GetFilms(request *models.FindFilmRequest) (*[]models.FilmItem, error) {
 	films := make([]models.FilmItem, 0, request.PerPage)
 	var s strings.Builder
@@ -69,7 +42,7 @@ func (repo *PsxRepo) GetFilms(request *models.FindFilmRequest) (*[]models.FilmIt
 	paramNum := 1
 	var params []interface{}
 
-	s.WriteString("SELECT film.id ,film.title, film.rating, film.release_date, film.info, array_agg(coalesce(actor.id, 0)) AS actors_ids  FROM film " +
+	s.WriteString("SELECT film.id ,film.title, film.rating, film.release_date, film.info FROM film " +
 		"LEFT JOIN actor_in_film ON actor_in_film.id_film = film.id " +
 		"LEFT JOIN actor ON actor_in_film.id_actor = actor.id ")
 
@@ -147,7 +120,7 @@ func (repo *PsxRepo) GetFilms(request *models.FindFilmRequest) (*[]models.FilmIt
 	for rows.Next() {
 		post := models.FilmItem{}
 
-		err := rows.Scan(&post.Id, &post.Title, &post.Rating, &post.Info, &post.ReleaseDate, pq.Array(&post.Actors))
+		err := rows.Scan(&post.Id, &post.Title, &post.Rating, &post.Info, &post.ReleaseDate)
 		if err != nil {
 			return nil, fmt.Errorf("find film scan err: %w", err)
 		}
@@ -156,4 +129,95 @@ func (repo *PsxRepo) GetFilms(request *models.FindFilmRequest) (*[]models.FilmIt
 	}
 
 	return &films, err
+}
+
+func (repo *PsxRepo) AddFilm(film *models.FilmRequest) (uint64, error) {
+	result, err := repo.DB.Exec("INSERT INTO film(title, info, release_date, rating ) VALUES($1, $2, $3, $4)", film.Title, film.Info, film.ReleaseDate, film.Rating)
+	if err != nil {
+		return 0, fmt.Errorf("AddFilm err: %w", err)
+	}
+
+	lastID, err := result.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("getting LastInsertId err: %w", err)
+	}
+
+	return uint64(lastID), nil
+}
+
+func (repo *PsxRepo) AddActor(actor *models.ActorItem) (uint64, error) {
+	result, err := repo.DB.Exec("INSERT INTO actor(name, gen, birthdate) VALUES($1, $2, $3)", actor.Name, actor.Gender, actor.Birthday)
+	if err != nil {
+		return 0, fmt.Errorf("AddActor err: %w", err)
+	}
+
+	lastID, err := result.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("getting LastInsertId err: %w", err)
+	}
+
+	return uint64(lastID), nil
+}
+
+func (repo *PsxRepo) AddActorsForFilm(filmId uint64, actors []uint64) error {
+	var s strings.Builder
+	var params []interface{}
+	params = append(params, filmId)
+
+	s.WriteString("INSERT INTO actor_in_film(id_film, id_actor) VALUES")
+	for i, actor := range actors {
+		if i != 0 {
+			s.WriteString(",")
+		}
+		s.WriteString("($1, $" + strconv.Itoa(i) + ")")
+		params = append(params, actor)
+	}
+
+	_, err := repo.DB.Exec(s.String(), params...)
+	if err != nil {
+		return fmt.Errorf("add film actors error: %w", err)
+	}
+	return nil
+}
+
+func (repo *PsxRepo) GetUser(login string, password string) (*models.UserItem, bool, error) {
+	post := &models.UserItem{}
+
+	err := repo.DB.QueryRow("SELECT profile.id, profile.login, profile.password, profile.role FROM profile "+
+		"WHERE login = $1 AND password = $2", login, password).Scan(&post.Id, &post.Login, &post.Password, &post.Role)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, false, nil
+		}
+		return nil, false, fmt.Errorf("GetUser err: %w", err)
+	}
+
+	return post, true, nil
+}
+
+func (repo *PsxRepo) FindUser(login string) (bool, error) {
+	post := &models.UserItem{}
+
+	err := repo.DB.QueryRow(
+		"SELECT login FROM profile "+
+			"WHERE login = $1", login).Scan(&post.Login)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		return false, fmt.Errorf("FindUser err: %w", err)
+	}
+
+	return true, nil
+}
+
+func (repo *PsxRepo) CreateUser(login string, password string) error {
+	_, err := repo.DB.Exec(
+		"INSERT INTO profile(login, password) "+
+			"VALUES($1, $2)", login, password)
+	if err != nil {
+		return fmt.Errorf("CreateUser err: %w", err)
+	}
+
+	return nil
 }

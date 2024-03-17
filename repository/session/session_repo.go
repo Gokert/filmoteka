@@ -1,4 +1,4 @@
-package auth_repo
+package session
 
 import (
 	"context"
@@ -9,11 +9,11 @@ import (
 	"time"
 )
 
-type AuthRepo struct {
+type SessionRepo struct {
 	DB *redis.Client
 }
 
-func GetAuthRepo(cfg *configs.DbRedisCfg, log *logrus.Logger) (IAuthRepo, error) {
+func GetAuthRepo(cfg *configs.DbRedisCfg, log *logrus.Logger) (ISessionRepo, error) {
 	redisClient := redis.NewClient(&redis.Options{
 		Addr:     cfg.Host,
 		Password: cfg.Password,
@@ -27,10 +27,10 @@ func GetAuthRepo(cfg *configs.DbRedisCfg, log *logrus.Logger) (IAuthRepo, error)
 	}
 
 	log.Info("Redis created successful")
-	return &AuthRepo{DB: redisClient}, nil
+	return &SessionRepo{DB: redisClient}, nil
 }
 
-func (repo *AuthRepo) AddSession(ctx context.Context, active models.Session, log *logrus.Logger) (bool, error) {
+func (repo *SessionRepo) AddSession(ctx context.Context, active models.Session, log *logrus.Logger) (bool, error) {
 
 	repo.DB.Set(ctx, active.SID, active.Login, 24*time.Hour)
 
@@ -42,7 +42,7 @@ func (repo *AuthRepo) AddSession(ctx context.Context, active models.Session, log
 	return added, nil
 }
 
-func (repo *AuthRepo) CheckActiveSession(ctx context.Context, sid string, lg *logrus.Logger) (bool, error) {
+func (repo *SessionRepo) CheckActiveSession(ctx context.Context, sid string, lg *logrus.Logger) (bool, error) {
 	_, err := repo.DB.Get(ctx, sid).Result()
 	if err == redis.Nil {
 		lg.Error("Key " + sid + " not found")
@@ -54,10 +54,10 @@ func (repo *AuthRepo) CheckActiveSession(ctx context.Context, sid string, lg *lo
 		return false, err
 	}
 
-	return false, err
+	return true, err
 }
 
-func (repo *AuthRepo) GetUserLogin(ctx context.Context, sid string, lg *logrus.Logger) (string, error) {
+func (repo *SessionRepo) GetUserLogin(ctx context.Context, sid string, lg *logrus.Logger) (string, error) {
 	value, err := repo.DB.Get(ctx, sid).Result()
 	if err != nil {
 		lg.Error("Error, cannot find session " + sid)
@@ -67,7 +67,7 @@ func (repo *AuthRepo) GetUserLogin(ctx context.Context, sid string, lg *logrus.L
 	return value, nil
 }
 
-func (repo *AuthRepo) DeleteSession(ctx context.Context, sid string, lg *logrus.Logger) (bool, error) {
+func (repo *SessionRepo) DeleteSession(ctx context.Context, sid string, lg *logrus.Logger) (bool, error) {
 	_, err := repo.DB.Del(ctx, sid).Result()
 	if err != nil {
 		lg.Error("Delete request could not be completed:", err)

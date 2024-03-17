@@ -21,10 +21,23 @@ type SigninRequest struct {
 	Login    string `json:"login"`
 	Password string `json:"password"`
 }
+type SignupRequest struct {
+	Login    string `json:"login"`
+	Password string `json:"password"`
+}
 
 type AuthCheckResponse struct {
 	Login string `json:"login"`
 	Role  string `json:"role"`
+}
+
+type FilmRequest struct {
+	Id          uint64   `json:"id"`
+	Title       string   `json:"title"`
+	Info        string   `json:"info"`
+	ReleaseDate string   `json:"release_date"`
+	Rating      float32  `json:"rating"`
+	Actors      []uint64 `json:"actors"`
 }
 
 type FindFilmRequest struct {

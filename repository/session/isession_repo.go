@@ -1,4 +1,4 @@
-package auth_repo
+package session
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type IAuthRepo interface {
+type ISessionRepo interface {
 	AddSession(ctx context.Context, active models.Session, log *logrus.Logger) (bool, error)
 	CheckActiveSession(ctx context.Context, sid string, lg *logrus.Logger) (bool, error)
 	GetUserLogin(ctx context.Context, sid string, lg *logrus.Logger) (string, error)
