@@ -27,10 +27,38 @@ CREATE TABLE IF NOT EXISTS actor_in_film(
     PRIMARY KEY(id_actor, id_film)
 );
 
+DROP TABLE IF EXISTS profile_role;
+CREATE TABLE IF NOT EXISTS profile_role(
+    id_profile SERIAL NOT NULL REFERENCES profile(id)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE,
+    id_role SERIAL NOT NULL REFERENCES role(id)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE,
+
+    PRIMARY KEY(id_profile, id_role)
+    );
+
+
 DROP TABLE IF EXISTS profile;
 CREATE TABLE IF NOT EXISTS profile (
-   id SERIAL NOT NULL PRIMARY KEY,
-   login TEXT NOT NULL UNIQUE DEFAULT '',
-   password TEXT NOT NULL DEFAULT '',
-   role TEXT NOT NULL DEFAULT 'user'
+               id SERIAL NOT NULL PRIMARY KEY,
+               login TEXT NOT NULL UNIQUE DEFAULT '',
+               id_password SERIAL NOT NULL REFERENCES password(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+);
+
+DROP TABLE IF EXISTS role;
+CREATE TABLE IF NOT EXISTS role (
+               id SERIAL NOT NULL PRIMARY KEY,
+               value TEXT NOT NULL DEFAULT '',
+);
+
+
+
+DROP TABLE IF EXISTS password;
+CREATE TABLE IF NOT EXISTS password (
+            id SERIAL NOT NULL PRIMARY KEY,
+            value TEXT NOT NULL DEFAULT '',
 );

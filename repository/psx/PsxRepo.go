@@ -159,8 +159,6 @@ func (repo *PsxRepo) SearchFilms(titleFilm string, nameActor string, page uint64
 	}
 	defer rows.Close()
 
-	fmt.Println(page, perPage)
-
 	for rows.Next() {
 		post := models.FilmItem{}
 		err := rows.Scan(&post.Id, &post.Title, &post.Info, &post.Rating, &post.ReleaseDate)
@@ -235,7 +233,7 @@ func (repo *PsxRepo) FindActors(page uint64, perPage uint64) ([]models.ActorResp
 }
 
 func (repo *PsxRepo) FindFilmsByActor(actorId uint64) ([]models.FilmItem, error) {
-	rows, err := repo.DB.Query("SELECT film.id, film.title, film,info, film.release_date FROM film LEFT JOIN actor_in_film ON actor_in_film.id_film = film.id LEFT JOIN actor ON actor_in_film.id_actor = actor.id")
+	rows, err := repo.DB.Query("SELECT film.id, film.title, film,info, film.release_date FROM film LEFT JOIN actor_in_film ON actor_in_film.id_film = film.id LEFT JOIN actor ON actor_in_film.id_actor = actor.id WHERE actor.id = $1", actorId)
 	if err != nil {
 		return nil, fmt.Errorf("sql request error: %s", err.Error())
 	}
@@ -317,6 +315,8 @@ func (repo *PsxRepo) UpdateFilm(film *models.FilmRequest) error {
 	if count < 2 {
 		return fmt.Errorf("not have params")
 	}
+
+	fmt.Println(s.String())
 
 	_, err := repo.DB.Query(s.String(), params...)
 	if err != nil {
@@ -559,8 +559,9 @@ func (repo *PsxRepo) AddActorsForFilm(filmId uint64, actors []uint64) error {
 func (repo *PsxRepo) GetUser(login string, password string) (*models.UserItem, bool, error) {
 	post := &models.UserItem{}
 
-	err := repo.DB.QueryRow("SELECT profile.id, profile.login, profile.password, profile.role FROM profile "+
-		"WHERE login = $1 AND password = $2", login, password).Scan(&post.Id, &post.Login, &post.Password, &post.Role)
+	err := repo.DB.QueryRow("SELECT profile.id, profile.login, profile.role FROM profile "+
+		"JOIN password ON password.id = profile.id_password "+
+		"WHERE profile.login = $1 AND password.value = $2 ", login, password).Scan(&post.Id, &post.Login, &post.Role)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, false, nil
@@ -588,12 +589,42 @@ func (repo *PsxRepo) FindUser(login string) (bool, error) {
 }
 
 func (repo *PsxRepo) CreateUser(login string, password string) error {
-	_, err := repo.DB.Exec(
-		"INSERT INTO profile(login, password) "+
-			"VALUES($1, $2)", login, password)
+	var passID uint64
+	err := repo.DB.QueryRow("INSERT INTO password(value) VALUES($1) RETURNING id", password).Scan(&passID)
 	if err != nil {
-		return fmt.Errorf("CreateUser err: %w", err)
+		return fmt.Errorf("create password err: %w", err)
+	}
+
+	_, err = repo.DB.Exec("INSERT INTO profile(login, role, id_password) VALUES($1, $2, $3)", login, "user", passID)
+	if err != nil {
+		return fmt.Errorf("create user err: %w", err)
 	}
 
 	return nil
+}
+
+func (repo *PsxRepo) GetUserId(login string) (uint64, error) {
+	var userID uint64
+
+	err := repo.DB.QueryRow(
+		"SELECT profile.id FROM profile WHERE profile.login = $1", login).Scan(&userID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, fmt.Errorf("User not found for login: %s", login)
+		}
+		return 0, fmt.Errorf("GetUserProfileID error: %w", err)
+	}
+
+	return userID, nil
+}
+
+func (repo *PsxRepo) GetRole(userId uint64) (string, error) {
+	var roleName string
+
+	err := repo.DB.QueryRow("SELECT profile.role FROM profile  WHERE profile.id = $1", userId).Scan(&roleName)
+	if err != nil {
+		return "", fmt.Errorf("get user role err: %w", err)
+	}
+
+	return roleName, nil
 }

@@ -56,6 +56,35 @@ func (c *Core) GetFilms(request *models.FindFilmRequest) (*[]models.FilmItem, er
 	return films, nil
 }
 
+func (c *Core) GetUserId(ctx context.Context, sid string) (uint64, error) {
+	c.mutex.RLock()
+	login, err := c.sessions.GetUserLogin(ctx, sid, c.log)
+	c.mutex.RUnlock()
+
+	if err != nil {
+		c.log.Errorf("get user login error: %s", err.Error())
+		return 0, fmt.Errorf("get user login error: %s", err.Error())
+	}
+
+	id, err := c.profiles.GetUserId(login)
+	if err != nil {
+		c.log.Errorf("get user id error: %s", err.Error())
+		return 0, fmt.Errorf("get user id error: %s", err.Error())
+	}
+
+	return id, nil
+}
+
+func (c *Core) GetRole(userId uint64) (string, error) {
+	role, err := c.profiles.GetRole(userId)
+	if err != nil {
+		c.log.Errorf("GetRole error: %s", err.Error())
+		return "", fmt.Errorf("GetRole error: %s", err.Error())
+	}
+
+	return role, nil
+}
+
 func (c *Core) AddFilm(film *models.FilmRequest, actors []uint64) (uint64, error) {
 	filmId, err := c.films.AddFilm(film)
 	if err != nil {
@@ -179,14 +208,16 @@ func (c *Core) CreateSession(ctx context.Context, login string) (models.Session,
 
 func (c *Core) FindActiveSession(ctx context.Context, sid string) (bool, error) {
 	c.mutex.RLock()
-	found, err := c.sessions.CheckActiveSession(ctx, sid, c.log)
+	login, err := c.sessions.CheckActiveSession(ctx, sid, c.log)
 	c.mutex.RUnlock()
+
+	c.log.Warning(login)
 
 	if err != nil {
 		return false, err
 	}
 
-	return found, nil
+	return login, nil
 }
 
 func (c *Core) KillSession(ctx context.Context, sid string) error {
