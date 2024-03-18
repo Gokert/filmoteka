@@ -84,6 +84,21 @@ func (c *Core) GetRole(userId uint64) (string, error) {
 }
 
 func (c *Core) AddFilm(film *models.FilmRequest, actors []uint64) (uint64, error) {
+	if film.Rating < utils.FilmRatingBegin || film.Rating > utils.FilmRatingEnd {
+		c.log.Error(utils.RatingSizeError)
+		return 0, fmt.Errorf(utils.RatingSizeError)
+	}
+
+	err := utils.ValidateStringSize(film.Title, utils.FilmTitleBegin, utils.FilmTitleEnd, utils.TitleSizeError, c.log)
+	if err != nil {
+		return 0, err
+	}
+
+	err = utils.ValidateStringSize(film.Info, utils.FilmDescriptionBegin, utils.FilmDescriptionEnd, utils.DescriptionSizeError, c.log)
+	if err != nil {
+		return 0, err
+	}
+
 	filmId, err := c.films.AddFilm(film)
 	if err != nil {
 		c.log.Error("add film error: ", err)
