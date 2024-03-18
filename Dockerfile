@@ -35,7 +35,12 @@ ENV REDIS_PORT=5432
 ENV DB_USER=user
 ENV DB_NAME=vk_filmoteka
 
+CMD service redis-server start && service postgresql start && \
+    nohup /app/authorization > /dev/null 2>&1 & && \
+    nohup /app/films > /dev/null 2>&1 &
 
 
-#CMD ["docker-compose", "up"]
 CMD service postgresql start && ./main
+
+
+
