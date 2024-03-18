@@ -253,6 +253,66 @@ func (repo *PsxRepo) FindFilmsByActor(actorId uint64) ([]models.FilmItem, error)
 	return response, nil
 }
 
+func (repo *PsxRepo) GetRelationByFilmId(filmId uint64) ([]uint64, error) {
+	var ids []uint64
+
+	rows, err := repo.DB.Query(`SELECT actor_in_film.id_actor FROM actor_in_film WHERE actor_in_film.id_film=$1`, filmId)
+	if err != nil {
+		return nil, fmt.Errorf("sql request find relation actors error: %s", err.Error())
+	}
+
+	for rows.Next() {
+		var id uint64
+
+		err := rows.Scan(&id)
+		if err != nil {
+			return nil, fmt.Errorf("sql scan actors in films error: %s", err.Error())
+		}
+		ids = append(ids, id)
+	}
+
+	return ids, nil
+}
+
+func (repo *PsxRepo) GetRelationByActorId(actorId uint64) ([]uint64, error) {
+	var ids []uint64
+
+	rows, err := repo.DB.Query(`SELECT actor_in_film.id_film FROM actor_in_film WHERE actor_in_film.id_actor=$1`, actorId)
+	if err != nil {
+		return nil, fmt.Errorf("sql request find relation films error: %s", err.Error())
+	}
+
+	for rows.Next() {
+		var id uint64
+
+		err := rows.Scan(&id)
+		if err != nil {
+			return nil, fmt.Errorf("sql scan actors in films error: %s", err.Error())
+		}
+		ids = append(ids, id)
+	}
+
+	return ids, nil
+}
+
+func (repo *PsxRepo) DeleteRelation(filmId uint64, actorId uint64) error {
+	_, err := repo.DB.Exec(`DELETE FROM actor_in_film WHERE id_actor=$1 AND id_film=$2`, actorId, filmId)
+	if err != nil {
+		return fmt.Errorf("sql delete relation error: %s", err.Error())
+	}
+
+	return err
+}
+
+func (repo *PsxRepo) InsertRelation(filmId uint64, actorId uint64) error {
+	result, err := repo.DB.Exec(`INSERT INTO actor_in_film (id_actor, id_film) VALUES ($1, $2)`, actorId, filmId)
+	if err != nil && result != nil {
+		return fmt.Errorf("sql insert relation error: %s", err.Error())
+	}
+
+	return err
+}
+
 func (repo *PsxRepo) UpdateFilm(film *models.FilmRequest) error {
 	if film.Id == 0 {
 		return fmt.Errorf("film id missing")
@@ -316,24 +376,15 @@ func (repo *PsxRepo) UpdateFilm(film *models.FilmRequest) error {
 		return fmt.Errorf("not have params")
 	}
 
-	fmt.Println(s.String())
-
 	_, err := repo.DB.Query(s.String(), params...)
 	if err != nil {
 		return fmt.Errorf("update film error: ", err.Error())
 	}
 
 	for _ = range film.Actors {
-		res, err := repo.DB.Query(`SELECT actor_in_film.id_actor FROM actor_in_film WHERE actor_in_film.id_film=$1`, film.Id)
+		existingActorIds, err := repo.GetRelationByFilmId(film.Id)
 		if err != nil {
-			return fmt.Errorf("sql request find relation actors error: %s", err.Error())
-		}
-
-		var existingActorIds []uint64
-		for res.Next() {
-			var bufFilmId uint64
-			res.Scan(&bufFilmId)
-			existingActorIds = append(existingActorIds, bufFilmId)
+			return err
 		}
 
 		for _, existingActorId := range existingActorIds {
@@ -345,9 +396,9 @@ func (repo *PsxRepo) UpdateFilm(film *models.FilmRequest) error {
 				}
 			}
 			if !found {
-				_, err := repo.DB.Exec(`DELETE FROM actor_in_film WHERE id_actor=$1 AND id_film=$2`, existingActorId, film.Id)
+				err := repo.DeleteRelation(existingActorId, film.Id)
 				if err != nil {
-					return fmt.Errorf("sql delete relation error: %s", err.Error())
+					return err
 				}
 			}
 		}
@@ -361,9 +412,9 @@ func (repo *PsxRepo) UpdateFilm(film *models.FilmRequest) error {
 				}
 			}
 			if !found {
-				result, err := repo.DB.Exec(`INSERT INTO actor_in_film (id_actor, id_film) VALUES ($1, $2)`, actorId, film.Id)
-				if err != nil && result != nil {
-					return fmt.Errorf("sql insert relation error: %s", err.Error())
+				err := repo.InsertRelation(film.Id, actorId)
+				if err != nil {
+					return err
 				}
 			}
 		}
@@ -402,14 +453,6 @@ func (repo *PsxRepo) AddFilm(film *models.FilmRequest) (uint64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("insert film err: %w", err)
 	}
-
-	//for _, actorId := range film.Actors {
-	//	fmt.Println(actorId, film.Actors, film.Id, actorId)
-	//	_, err = repo.DB.Exec("INSERT INTO actor_in_film(id_film, id_actor) VALUES($1, $2)", film.Id, actorId)
-	//	if err != nil {
-	//		return 0, fmt.Errorf("insert relation film err: %w", err)
-	//	}
-	//}
 
 	return film.Id, nil
 }
@@ -471,8 +514,6 @@ func (repo *PsxRepo) UpdateActor(actor *models.ActorRequest) error {
 	count++
 	s.WriteString(" WHERE actor.id = $" + strconv.Itoa(count))
 
-	fmt.Println(s.String())
-
 	if count < 2 {
 		return fmt.Errorf("not have params")
 	}
@@ -483,16 +524,9 @@ func (repo *PsxRepo) UpdateActor(actor *models.ActorRequest) error {
 	}
 
 	for _ = range actor.Films {
-		res, err := repo.DB.Query(`SELECT actor_in_film.id_film FROM actor_in_film WHERE actor_in_film.id_actor=$1`, actor.Id)
+		existingFilmIds, err := repo.GetRelationByActorId(actor.Id)
 		if err != nil {
-			return fmt.Errorf("sql request find relation actors error: %s", err.Error())
-		}
-
-		var existingFilmIds []uint64
-		for res.Next() {
-			var bufFilmId uint64
-			res.Scan(&bufFilmId)
-			existingFilmIds = append(existingFilmIds, bufFilmId)
+			return err
 		}
 
 		for _, existingFilmId := range existingFilmIds {
@@ -504,9 +538,9 @@ func (repo *PsxRepo) UpdateActor(actor *models.ActorRequest) error {
 				}
 			}
 			if !found {
-				_, err := repo.DB.Exec(`DELETE FROM actor_in_film WHERE id_actor=$1 AND id_film=$2`, actor.Id, existingFilmId)
+				err := repo.DeleteRelation(existingFilmId, actor.Id)
 				if err != nil {
-					return fmt.Errorf("sql delete relation error: %s", err.Error())
+					return err
 				}
 			}
 		}
@@ -520,9 +554,9 @@ func (repo *PsxRepo) UpdateActor(actor *models.ActorRequest) error {
 				}
 			}
 			if !found {
-				_, err := repo.DB.Exec(`INSERT INTO actor_in_film (id_actor, id_film) VALUES ($1, $2)`, actor.Id, filmId)
+				err := repo.InsertRelation(filmId, actor.Id)
 				if err != nil {
-					return fmt.Errorf("sql insert relation error: %s", err.Error())
+					return err
 				}
 			}
 		}
