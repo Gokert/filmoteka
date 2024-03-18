@@ -2,7 +2,9 @@ package delivery
 
 import (
 	"encoding/json"
+	"filmoteka/pkg/middleware"
 	"filmoteka/pkg/models"
+	httpResponse "filmoteka/pkg/response"
 	"filmoteka/usecase"
 	"github.com/sirupsen/logrus"
 	"io"
@@ -28,17 +30,16 @@ func GetApi(core *usecase.Core, log *logrus.Logger) *Api {
 	api.mx.HandleFunc("/logout", api.Logout)
 	api.mx.HandleFunc("/authcheck", api.AuthAccept)
 
-	//api.mx.HandleFunc("/api/v1/actors", nil)
-	//api.mx.HandleFunc("/api/v1/actors/search", api.SearchActors)
+	api.mx.HandleFunc("/api/v1/actors", api.FindActors)
 	api.mx.HandleFunc("/api/v1/actors/add", api.AddActor)
-	//api.mx.HandleFunc("/api/v1/actors/change", nil)
-	//api.mx.HandleFunc("/api/v1/actors/delete", nil)
+	api.mx.HandleFunc("/api/v1/actors/update", api.UpdateActor)
+	api.mx.Handle("/api/v1/actors/delete", middleware.AuthCheck(http.HandlerFunc(api.DeleteActor), core, log))
 
 	api.mx.HandleFunc("/api/v1/films", api.FindFilms)
 	api.mx.HandleFunc("/api/v1/films/search", api.SearchFilms)
 	api.mx.HandleFunc("/api/v1/films/add", api.AddFilm)
-	//api.mx.HandleFunc("/api/v1/films/change", nil)
-	api.mx.HandleFunc("/api/v1/films/delete", api.DeleteFilm) //??
+	api.mx.HandleFunc("/api/v1/films/update", api.UpdateFilm)
+	api.mx.HandleFunc("/api/v1/films/delete", api.DeleteFilm)
 
 	return api
 }
@@ -53,29 +54,13 @@ func (a *Api) ListenAndServe(port string) error {
 	return nil
 }
 
-func (a *Api) SendResponse(w http.ResponseWriter, r *http.Request, response *models.Response) {
-	jsonResponse, err := json.Marshal(response)
-	if err != nil {
-		a.log.Error("Send response error: ", err)
-		response.Status = http.StatusInternalServerError
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	_, err = w.Write(jsonResponse)
-	if err != nil {
-		a.log.Error("Failed to send response: ", err.Error())
-	}
-}
-
 func (a *Api) Signin(w http.ResponseWriter, r *http.Request) {
 	response := models.Response{Status: http.StatusOK, Body: nil}
 	a.log.Info(r.Host, r.URL)
 
 	if r.Method != http.MethodPost {
 		response.Status = http.StatusMethodNotAllowed
-		a.SendResponse(w, r, &response)
+		httpResponse.SendResponse(w, r, &response, a.log)
 		return
 	}
 
@@ -88,7 +73,7 @@ func (a *Api) Signin(w http.ResponseWriter, r *http.Request) {
 
 	if authorized {
 		response.Status = http.StatusOK
-		a.SendResponse(w, r, &response)
+		httpResponse.SendResponse(w, r, &response, a.log)
 		return
 	}
 
@@ -98,7 +83,7 @@ func (a *Api) Signin(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		a.log.Error("Signin error: ", err.Error())
 		response.Status = http.StatusBadRequest
-		a.SendResponse(w, r, &response)
+		httpResponse.SendResponse(w, r, &response, a.log)
 		return
 	}
 
@@ -106,7 +91,7 @@ func (a *Api) Signin(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		a.log.Error("Signin error: ", err.Error())
 		response.Status = http.StatusBadRequest
-		a.SendResponse(w, r, &response)
+		httpResponse.SendResponse(w, r, &response, a.log)
 		return
 	}
 
@@ -114,13 +99,13 @@ func (a *Api) Signin(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		a.log.Error("Signin error: ", err.Error())
 		response.Status = http.StatusInternalServerError
-		a.SendResponse(w, r, &response)
+		httpResponse.SendResponse(w, r, &response, a.log)
 		return
 	}
 
 	if !found {
 		response.Status = http.StatusUnauthorized
-		a.SendResponse(w, r, &response)
+		httpResponse.SendResponse(w, r, &response, a.log)
 		return
 	}
 
@@ -134,7 +119,7 @@ func (a *Api) Signin(w http.ResponseWriter, r *http.Request) {
 	}
 	http.SetCookie(w, cookie)
 
-	a.SendResponse(w, r, &response)
+	httpResponse.SendResponse(w, r, &response, a.log)
 }
 
 func (a *Api) Signup(w http.ResponseWriter, r *http.Request) {
@@ -143,7 +128,7 @@ func (a *Api) Signup(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method != http.MethodPost {
 		response.Status = http.StatusMethodNotAllowed
-		a.SendResponse(w, r, &response)
+		httpResponse.SendResponse(w, r, &response, a.log)
 		return
 	}
 
@@ -152,14 +137,14 @@ func (a *Api) Signup(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		response.Status = http.StatusBadRequest
-		a.SendResponse(w, r, &response)
+		httpResponse.SendResponse(w, r, &response, a.log)
 		return
 	}
 
 	err = json.Unmarshal(body, &request)
 	if err != nil {
 		response.Status = http.StatusInternalServerError
-		a.SendResponse(w, r, &response)
+		httpResponse.SendResponse(w, r, &response, a.log)
 		return
 	}
 
@@ -167,13 +152,13 @@ func (a *Api) Signup(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		a.log.Error("Signup error: ", err.Error())
 		response.Status = http.StatusInternalServerError
-		a.SendResponse(w, r, &response)
+		httpResponse.SendResponse(w, r, &response, a.log)
 		return
 	}
 
 	if found {
 		response.Status = http.StatusConflict
-		a.SendResponse(w, r, &response)
+		httpResponse.SendResponse(w, r, &response, a.log)
 		return
 	}
 
@@ -181,11 +166,11 @@ func (a *Api) Signup(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		a.log.Error("create user error: ", err.Error())
 		response.Status = http.StatusBadRequest
-		a.SendResponse(w, r, &response)
+		httpResponse.SendResponse(w, r, &response, a.log)
 		return
 	}
 
-	a.SendResponse(w, r, &response)
+	httpResponse.SendResponse(w, r, &response, a.log)
 }
 
 func (a *Api) AddFilm(w http.ResponseWriter, r *http.Request) {
@@ -194,7 +179,7 @@ func (a *Api) AddFilm(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method != http.MethodPost {
 		response.Status = http.StatusMethodNotAllowed
-		a.SendResponse(w, r, &response)
+		httpResponse.SendResponse(w, r, &response, a.log)
 		return
 	}
 
@@ -203,14 +188,14 @@ func (a *Api) AddFilm(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		response.Status = http.StatusBadRequest
-		a.SendResponse(w, r, &response)
+		httpResponse.SendResponse(w, r, &response, a.log)
 		return
 	}
 
 	err = json.Unmarshal(body, &request)
 	if err != nil {
 		response.Status = http.StatusInternalServerError
-		a.SendResponse(w, r, &response)
+		httpResponse.SendResponse(w, r, &response, a.log)
 		return
 	}
 
@@ -219,13 +204,11 @@ func (a *Api) AddFilm(w http.ResponseWriter, r *http.Request) {
 	_, err = a.core.AddFilm(&request, request.Actors)
 	if err != nil {
 		response.Status = http.StatusInternalServerError
-		a.SendResponse(w, r, &response)
+		httpResponse.SendResponse(w, r, &response, a.log)
 		return
 	}
 
-	//response.Body = request
-
-	a.SendResponse(w, r, &response)
+	httpResponse.SendResponse(w, r, &response, a.log)
 }
 
 func (a *Api) AddActor(w http.ResponseWriter, r *http.Request) {
@@ -234,7 +217,7 @@ func (a *Api) AddActor(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method != http.MethodPost {
 		response.Status = http.StatusMethodNotAllowed
-		a.SendResponse(w, r, &response)
+		httpResponse.SendResponse(w, r, &response, a.log)
 		return
 	}
 
@@ -243,25 +226,25 @@ func (a *Api) AddActor(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		response.Status = http.StatusBadRequest
-		a.SendResponse(w, r, &response)
+		httpResponse.SendResponse(w, r, &response, a.log)
 		return
 	}
 
 	err = json.Unmarshal(body, &request)
 	if err != nil {
 		response.Status = http.StatusInternalServerError
-		a.SendResponse(w, r, &response)
+		httpResponse.SendResponse(w, r, &response, a.log)
 		return
 	}
 
 	_, err = a.core.AddActor(&request)
 	if err != nil {
 		response.Status = http.StatusInternalServerError
-		a.SendResponse(w, r, &response)
+		httpResponse.SendResponse(w, r, &response, a.log)
 		return
 	}
 
-	a.SendResponse(w, r, &response)
+	httpResponse.SendResponse(w, r, &response, a.log)
 }
 
 func (a *Api) SearchFilms(w http.ResponseWriter, r *http.Request) {
@@ -270,7 +253,7 @@ func (a *Api) SearchFilms(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method != http.MethodGet {
 		response.Status = http.StatusMethodNotAllowed
-		a.SendResponse(w, r, &response)
+		httpResponse.SendResponse(w, r, &response, a.log)
 		return
 	}
 
@@ -290,13 +273,13 @@ func (a *Api) SearchFilms(w http.ResponseWriter, r *http.Request) {
 	films, err := a.core.SearchFilms(titleFilm, nameActor, page, pageSize)
 	if err != nil {
 		response.Status = http.StatusInternalServerError
-		a.SendResponse(w, r, &response)
+		httpResponse.SendResponse(w, r, &response, a.log)
 		return
 	}
 
 	response.Body = films
 
-	a.SendResponse(w, r, &response)
+	httpResponse.SendResponse(w, r, &response, a.log)
 }
 
 func (a *Api) FindFilms(w http.ResponseWriter, r *http.Request) {
@@ -305,7 +288,7 @@ func (a *Api) FindFilms(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method != http.MethodGet {
 		response.Status = http.StatusMethodNotAllowed
-		a.SendResponse(w, r, &response)
+		httpResponse.SendResponse(w, r, &response, a.log)
 		return
 	}
 
@@ -357,7 +340,7 @@ func (a *Api) FindFilms(w http.ResponseWriter, r *http.Request) {
 		Films: films,
 	}
 
-	a.SendResponse(w, r, &response)
+	httpResponse.SendResponse(w, r, &response, a.log)
 }
 
 func (a *Api) DeleteFilm(w http.ResponseWriter, r *http.Request) {
@@ -366,13 +349,156 @@ func (a *Api) DeleteFilm(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method != http.MethodDelete {
 		response.Status = http.StatusMethodNotAllowed
-		a.SendResponse(w, r, &response)
+		httpResponse.SendResponse(w, r, &response, a.log)
 		return
 	}
 
-	//filmId := r.URL.Query().Get("film_id")
+	filmId, err := strconv.ParseUint(r.URL.Query().Get("film_id"), 10, 64)
+	if err != nil {
+		response.Status = http.StatusBadRequest
+		httpResponse.SendResponse(w, r, &response, a.log)
+		return
+	}
 
-	a.SendResponse(w, r, &response)
+	_, err = a.core.DeleteFilm(filmId)
+	if err != nil {
+		response.Status = http.StatusInternalServerError
+		httpResponse.SendResponse(w, r, &response, a.log)
+		return
+	}
+
+	httpResponse.SendResponse(w, r, &response, a.log)
+}
+
+func (a *Api) UpdateFilm(w http.ResponseWriter, r *http.Request) {
+	response := models.Response{Status: http.StatusOK, Body: nil}
+	a.log.Info(r.Host, r.URL)
+
+	if r.Method != http.MethodPatch {
+		response.Status = http.StatusMethodNotAllowed
+		httpResponse.SendResponse(w, r, &response, a.log)
+		return
+	}
+
+	var request models.FilmRequest
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		response.Status = http.StatusBadRequest
+		httpResponse.SendResponse(w, r, &response, a.log)
+		return
+	}
+
+	err = json.Unmarshal(body, &request)
+	if err != nil {
+		response.Status = http.StatusInternalServerError
+		httpResponse.SendResponse(w, r, &response, a.log)
+		return
+	}
+
+	err = a.core.UpdateFilm(&request)
+	if err != nil {
+		response.Status = http.StatusInternalServerError
+		httpResponse.SendResponse(w, r, &response, a.log)
+		return
+	}
+
+	httpResponse.SendResponse(w, r, &response, a.log)
+}
+
+func (a *Api) FindActors(w http.ResponseWriter, r *http.Request) {
+	response := models.Response{Status: http.StatusOK, Body: nil}
+	a.log.Info(r.Host, r.URL)
+
+	if r.Method != http.MethodGet {
+		response.Status = http.StatusMethodNotAllowed
+		httpResponse.SendResponse(w, r, &response, a.log)
+		return
+	}
+
+	page, err := strconv.ParseUint(r.URL.Query().Get("page"), 10, 64)
+	if err != nil {
+		page = 0
+	}
+
+	perSize, err := strconv.ParseUint(r.URL.Query().Get("per_size"), 10, 64)
+	if err != nil {
+		perSize = 8
+	}
+
+	actors, err := a.core.FindActors(page, perSize)
+	if err != nil {
+		response.Status = http.StatusInternalServerError
+		httpResponse.SendResponse(w, r, &response, a.log)
+		return
+	}
+
+	response.Body = actors
+
+	httpResponse.SendResponse(w, r, &response, a.log)
+}
+
+func (a *Api) DeleteActor(w http.ResponseWriter, r *http.Request) {
+	response := models.Response{Status: http.StatusOK, Body: nil}
+	a.log.Info(r.Host, r.URL)
+
+	if r.Method != http.MethodDelete {
+		response.Status = http.StatusMethodNotAllowed
+		httpResponse.SendResponse(w, r, &response, a.log)
+		return
+	}
+
+	actorId, err := strconv.ParseUint(r.URL.Query().Get("actor_id"), 10, 64)
+	if err != nil {
+		response.Status = http.StatusBadRequest
+		httpResponse.SendResponse(w, r, &response, a.log)
+		return
+	}
+
+	err = a.core.DeleteActor(actorId)
+	if err != nil {
+		response.Status = http.StatusInternalServerError
+		httpResponse.SendResponse(w, r, &response, a.log)
+		return
+	}
+
+	httpResponse.SendResponse(w, r, &response, a.log)
+}
+
+func (a *Api) UpdateActor(w http.ResponseWriter, r *http.Request) {
+	response := models.Response{Status: http.StatusOK, Body: nil}
+	a.log.Info(r.Host, r.URL)
+
+	if r.Method != http.MethodPatch {
+		response.Status = http.StatusMethodNotAllowed
+		httpResponse.SendResponse(w, r, &response, a.log)
+		return
+	}
+
+	var request models.ActorRequest
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		response.Status = http.StatusBadRequest
+		httpResponse.SendResponse(w, r, &response, a.log)
+		return
+	}
+
+	err = json.Unmarshal(body, &request)
+	if err != nil {
+		response.Status = http.StatusInternalServerError
+		httpResponse.SendResponse(w, r, &response, a.log)
+		return
+	}
+
+	err = a.core.UpdateActor(&request)
+	if err != nil {
+		response.Status = http.StatusInternalServerError
+		httpResponse.SendResponse(w, r, &response, a.log)
+		return
+	}
+
+	httpResponse.SendResponse(w, r, &response, a.log)
 }
 
 func (a *Api) Logout(w http.ResponseWriter, r *http.Request) {
@@ -381,25 +507,25 @@ func (a *Api) Logout(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method != http.MethodDelete {
 		response.Status = http.StatusMethodNotAllowed
-		a.SendResponse(w, r, &response)
+		httpResponse.SendResponse(w, r, &response, a.log)
 		return
 	}
 
 	cookie, err := r.Cookie("session_id")
 	if err != nil {
 		response.Status = http.StatusBadRequest
-		a.SendResponse(w, r, &response)
+		httpResponse.SendResponse(w, r, &response, a.log)
 		return
 	}
 
 	err = a.core.KillSession(r.Context(), cookie.Value)
 	if err != nil {
 		response.Status = http.StatusInternalServerError
-		a.SendResponse(w, r, &response)
+		httpResponse.SendResponse(w, r, &response, a.log)
 		return
 	}
 
-	a.SendResponse(w, r, &response)
+	httpResponse.SendResponse(w, r, &response, a.log)
 }
 
 func (a *Api) AuthAccept(w http.ResponseWriter, r *http.Request) {
@@ -408,7 +534,7 @@ func (a *Api) AuthAccept(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method != http.MethodGet {
 		response.Status = http.StatusMethodNotAllowed
-		a.SendResponse(w, r, &response)
+		httpResponse.SendResponse(w, r, &response, a.log)
 		return
 	}
 
@@ -419,7 +545,7 @@ func (a *Api) AuthAccept(w http.ResponseWriter, r *http.Request) {
 
 	if !authorized {
 		response.Status = http.StatusUnauthorized
-		a.SendResponse(w, r, &response)
+		httpResponse.SendResponse(w, r, &response, a.log)
 		return
 	}
 
@@ -427,7 +553,7 @@ func (a *Api) AuthAccept(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		a.log.Error("auth accept error: ", err.Error())
 		response.Status = http.StatusInternalServerError
-		a.SendResponse(w, r, &response)
+		httpResponse.SendResponse(w, r, &response, a.log)
 		return
 	}
 
@@ -436,5 +562,5 @@ func (a *Api) AuthAccept(w http.ResponseWriter, r *http.Request) {
 		Role:  "hui",
 	}
 
-	a.SendResponse(w, r, &response)
+	httpResponse.SendResponse(w, r, &response, a.log)
 }

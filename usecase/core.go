@@ -92,9 +92,53 @@ func (c *Core) SearchFilms(titleFilm string, nameActor string, page uint64, perP
 	return films, nil
 }
 
+func (c *Core) UpdateFilm(film *models.FilmRequest) error {
+	err := c.films.UpdateFilm(film)
+	if err != nil {
+		c.log.Error("ChangeFilm error: ", err.Error())
+		return fmt.Errorf("ChangeFilm error: ", err.Error())
+	}
+
+	return nil
+}
+
+func (c *Core) UpdateActor(actor *models.ActorRequest) error {
+	err := c.films.UpdateActor(actor)
+	if err != nil {
+		c.log.Errorf("ChangeActor error: %s", err.Error())
+		return fmt.Errorf("ChangeActor error: %s", err.Error())
+	}
+
+	return nil
+}
+
 func (c *Core) DeleteFilm(filmId uint64) (bool, error) {
+	_, err := c.films.DeleteFilm(filmId)
+	if err != nil {
+		return false, fmt.Errorf("DeleteFilm error: %w", err)
+	}
 
 	return true, nil
+}
+
+func (c *Core) FindActors(page uint64, perPage uint64) ([]models.ActorResponse, error) {
+	actors, err := c.films.FindActors(page, perPage)
+	if err != nil {
+		c.log.Error("FindActors error: ", err.Error())
+		return nil, fmt.Errorf("FindActors error: ", err.Error())
+	}
+
+	return actors, nil
+}
+
+func (c *Core) DeleteActor(actorId uint64) error {
+	err := c.films.DeleteActor(actorId)
+	if err != nil {
+		c.log.Errorf("DeleteActor error: %s", err.Error())
+		return fmt.Errorf("DeleteActor error: %s", err.Error())
+	}
+
+	return nil
 }
 
 func (c *Core) GetUserName(ctx context.Context, sid string) (string, error) {

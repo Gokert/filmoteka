@@ -40,6 +40,22 @@ type FilmRequest struct {
 	Actors      []uint64 `json:"actors"`
 }
 
+type ActorResponse struct {
+	Id       uint64     `json:"id"`
+	Name     string     `json:"name"`
+	Gender   string     `json:"gen"`
+	Birthday string     `json:"birthday"`
+	Films    []FilmItem `json:"films"`
+}
+
+type ActorRequest struct {
+	Id       uint64   `json:"id"`
+	Name     string   `json:"name"`
+	Gender   string   `json:"gen"`
+	Birthday string   `json:"birthday"`
+	Films    []uint64 `json:"films"`
+}
+
 type FindFilmRequest struct {
 	Title           string  `json:"title"`
 	RatingFrom      float32 `json:"rating_from"`

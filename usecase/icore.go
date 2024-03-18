@@ -9,9 +9,13 @@ type ICore interface {
 	GetFilms(request *models.FindFilmRequest) (*[]models.FilmItem, error)
 	AddFilm(film *models.FilmRequest, actors []uint64) (uint64, error)
 	SearchFilms(titleFilm string, nameActor string, page uint64, perPage uint64) ([]models.FilmItem, error)
+	UpdateFilm(film *models.FilmRequest) error
 	DeleteFilm(filmId uint64) (bool, error)
 
 	AddActor(actor *models.ActorItem) (uint64, error)
+	FindActors(page uint64, perPage uint64) ([]models.ActorResponse, error)
+	UpdateActor(actor *models.ActorRequest) error
+	DeleteActor(actorId uint64) error
 
 	GetUserName(ctx context.Context, sid string) (string, error)
 	CreateSession(ctx context.Context, login string) (models.Session, error)
