@@ -6,5 +6,4 @@ type FilmItem struct {
 	Info        string  `json:"info"`
 	Rating      float64 `json:"rating"`
 	ReleaseDate string  `json:"release_date"`
-	//Actors      []ActorItem `json:"actors"`
 }

@@ -48,7 +48,7 @@ func AuthCheck(next http.Handler, core Core, lg *logrus.Logger) http.Handler {
 func CheckRole(next http.Handler, core Core, lg *logrus.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		userId, isAuth := r.Context().Value(UserIDKey).(uint64)
-		if isAuth == false {
+		if !isAuth {
 			response := models.Response{Status: http.StatusUnauthorized, Body: nil}
 			httpResponse.SendResponse(w, r, &response, lg)
 			return

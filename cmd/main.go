@@ -5,7 +5,14 @@ import (
 	"filmoteka/configs/logger"
 	delivery "filmoteka/delivery/http"
 	"filmoteka/usecase"
+	_ "github.com/swaggo/swag"
 )
+
+// @title filmoteka App API
+// @version 1.0
+// @description API Server fot Application
+// @host 127.0.0.1:8081
+// @BasePath /
 
 func main() {
 	log := logger.GetLogger()

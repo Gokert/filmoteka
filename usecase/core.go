@@ -3,12 +3,12 @@ package usecase
 import (
 	"context"
 	"filmoteka/configs"
+	utils "filmoteka/pkg"
 	"filmoteka/pkg/models"
 	"filmoteka/repository/psx"
 	"filmoteka/repository/session"
 	"fmt"
 	"github.com/sirupsen/logrus"
-	"math/rand"
 	"sync"
 	"time"
 )
@@ -20,8 +20,6 @@ type Core struct {
 	profiles psx.IProfileRepo
 	sessions session.ISessionRepo
 }
-
-var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
 func GetCore(psxCfg *configs.DbPsxConfig, redisCfg *configs.DbRedisCfg, log *logrus.Logger) (*Core, error) {
 	filmRepo, err := psx.GetFilmRepo(psxCfg, log)
@@ -49,8 +47,8 @@ func GetCore(psxCfg *configs.DbPsxConfig, redisCfg *configs.DbRedisCfg, log *log
 func (c *Core) GetFilms(request *models.FindFilmRequest) (*[]models.FilmItem, error) {
 	films, err := c.films.GetFilms(request)
 	if err != nil {
-		c.log.Error("GetFilms error: ", err)
-		return nil, err
+		c.log.Errorf("get films error: %s", err.Error())
+		return nil, fmt.Errorf("get films error: %s", err.Error())
 	}
 
 	return films, nil
@@ -78,8 +76,8 @@ func (c *Core) GetUserId(ctx context.Context, sid string) (uint64, error) {
 func (c *Core) GetRole(userId uint64) (string, error) {
 	role, err := c.profiles.GetRole(userId)
 	if err != nil {
-		c.log.Errorf("GetRole error: %s", err.Error())
-		return "", fmt.Errorf("GetRole error: %s", err.Error())
+		c.log.Errorf("get role error: %s", err.Error())
+		return "", fmt.Errorf("get role error: %s", err.Error())
 	}
 
 	return role, nil
@@ -88,8 +86,8 @@ func (c *Core) GetRole(userId uint64) (string, error) {
 func (c *Core) AddFilm(film *models.FilmRequest, actors []uint64) (uint64, error) {
 	filmId, err := c.films.AddFilm(film)
 	if err != nil {
-		c.log.Error("AddFilm error: ", err)
-		return 0, fmt.Errorf("AddFilm error: %w", err)
+		c.log.Error("add film error: ", err)
+		return 0, fmt.Errorf("add film error: %w", err)
 	}
 
 	err = c.films.AddActorsForFilm(filmId, actors)
@@ -104,8 +102,8 @@ func (c *Core) AddFilm(film *models.FilmRequest, actors []uint64) (uint64, error
 func (c *Core) AddActor(actor *models.ActorItem) (uint64, error) {
 	actorId, err := c.films.AddActor(actor)
 	if err != nil {
-		c.log.Error("AddActorsForFilm error: ", err.Error())
-		return 0, fmt.Errorf("AddActor error: %w", err)
+		c.log.Errorf("add actor error: %s", err.Error())
+		return 0, fmt.Errorf("add actor error: %s", err.Error())
 	}
 
 	return actorId, nil
@@ -114,8 +112,8 @@ func (c *Core) AddActor(actor *models.ActorItem) (uint64, error) {
 func (c *Core) SearchFilms(titleFilm string, nameActor string, page uint64, perPage uint64) ([]models.FilmItem, error) {
 	films, err := c.films.SearchFilms(titleFilm, nameActor, page, perPage)
 	if err != nil {
-		c.log.Error("SearchFilms error: ", err.Error())
-		return nil, err
+		c.log.Errorf("SearchFilms error: %s", err.Error())
+		return nil, fmt.Errorf("SearchFilms error: %s", err.Error())
 	}
 
 	return films, nil
@@ -124,8 +122,8 @@ func (c *Core) SearchFilms(titleFilm string, nameActor string, page uint64, perP
 func (c *Core) UpdateFilm(film *models.FilmRequest) error {
 	err := c.films.UpdateFilm(film)
 	if err != nil {
-		c.log.Error("ChangeFilm error: ", err.Error())
-		return fmt.Errorf("ChangeFilm error: ", err.Error())
+		c.log.Errorf("change film error: %s", err.Error())
+		return fmt.Errorf("change film error: %s", err.Error())
 	}
 
 	return nil
@@ -134,8 +132,8 @@ func (c *Core) UpdateFilm(film *models.FilmRequest) error {
 func (c *Core) UpdateActor(actor *models.ActorRequest) error {
 	err := c.films.UpdateActor(actor)
 	if err != nil {
-		c.log.Errorf("ChangeActor error: %s", err.Error())
-		return fmt.Errorf("ChangeActor error: %s", err.Error())
+		c.log.Errorf("change actor error: %s", err.Error())
+		return fmt.Errorf("change actor error: %s", err.Error())
 	}
 
 	return nil
@@ -144,7 +142,8 @@ func (c *Core) UpdateActor(actor *models.ActorRequest) error {
 func (c *Core) DeleteFilm(filmId uint64) (bool, error) {
 	_, err := c.films.DeleteFilm(filmId)
 	if err != nil {
-		return false, fmt.Errorf("DeleteFilm error: %w", err)
+		c.log.Errorf("delete film error: %s", err.Error())
+		return false, fmt.Errorf("delete film error: %s", err.Error())
 	}
 
 	return true, nil
@@ -153,8 +152,8 @@ func (c *Core) DeleteFilm(filmId uint64) (bool, error) {
 func (c *Core) FindActors(page uint64, perPage uint64) ([]models.ActorResponse, error) {
 	actors, err := c.films.FindActors(page, perPage)
 	if err != nil {
-		c.log.Error("FindActors error: ", err.Error())
-		return nil, fmt.Errorf("FindActors error: ", err.Error())
+		c.log.Errorf("find actors error: %s", err.Error())
+		return nil, fmt.Errorf("find actors error: %s", err.Error())
 	}
 
 	return actors, nil
@@ -163,8 +162,8 @@ func (c *Core) FindActors(page uint64, perPage uint64) ([]models.ActorResponse, 
 func (c *Core) DeleteActor(actorId uint64) error {
 	err := c.films.DeleteActor(actorId)
 	if err != nil {
-		c.log.Errorf("DeleteActor error: %s", err.Error())
-		return fmt.Errorf("DeleteActor error: %s", err.Error())
+		c.log.Errorf("delete actor error: %s", err.Error())
+		return fmt.Errorf("delete actor error: %s", err.Error())
 	}
 
 	return nil
@@ -176,14 +175,15 @@ func (c *Core) GetUserName(ctx context.Context, sid string) (string, error) {
 	c.mutex.RUnlock()
 
 	if err != nil {
-		return "", err
+		c.log.Errorf("get user name error: %s", err.Error())
+		return "", fmt.Errorf("get user name error: %s", err.Error())
 	}
 
 	return login, nil
 }
 
 func (c *Core) CreateSession(ctx context.Context, login string) (models.Session, error) {
-	sid := RandStringRunes(32)
+	sid := utils.RandStringRunes(32)
 
 	newSession := models.Session{
 		Login:     login,
@@ -211,10 +211,9 @@ func (c *Core) FindActiveSession(ctx context.Context, sid string) (bool, error) 
 	login, err := c.sessions.CheckActiveSession(ctx, sid, c.log)
 	c.mutex.RUnlock()
 
-	c.log.Warning(login)
-
 	if err != nil {
-		return false, err
+		c.log.Errorf("find active session error: %s", err.Error())
+		return false, fmt.Errorf("find active session error: %s", err.Error())
 	}
 
 	return login, nil
@@ -226,27 +225,30 @@ func (c *Core) KillSession(ctx context.Context, sid string) error {
 	c.mutex.Unlock()
 
 	if err != nil {
-		return err
+		c.log.Errorf("delete session error: %s", err.Error())
+		return fmt.Errorf("delete sessionerror: %s", err.Error())
 	}
 
 	return nil
 }
 
 func (c *Core) CreateUserAccount(login string, password string) error {
-	err := c.profiles.CreateUser(login, password)
+	hashPassword := utils.HashPassword(password)
+	err := c.profiles.CreateUser(login, hashPassword)
 	if err != nil {
-		c.log.Error("create user error: ", err.Error())
-		return fmt.Errorf("CreateUserAccount err: %w", err)
+		c.log.Errorf("create user account error: %s", err.Error())
+		return fmt.Errorf("create user account error: %s", err.Error())
 	}
 
 	return nil
 }
 
 func (c *Core) FindUserAccount(login string, password string) (*models.UserItem, bool, error) {
-	user, found, err := c.profiles.GetUser(login, password)
+	hashPassword := utils.HashPassword(password)
+	user, found, err := c.profiles.GetUser(login, hashPassword)
 	if err != nil {
-		c.log.Error("find user error: ", err.Error())
-		return nil, false, fmt.Errorf("FindUserAccount error: %w", err)
+		c.log.Errorf("find user error: %s", err.Error())
+		return nil, false, fmt.Errorf("find user account error: %s", err.Error())
 	}
 	return user, found, nil
 }
@@ -254,17 +256,9 @@ func (c *Core) FindUserAccount(login string, password string) (*models.UserItem,
 func (c *Core) FindUserByLogin(login string) (bool, error) {
 	found, err := c.profiles.FindUser(login)
 	if err != nil {
-		c.log.Error("find user error", "err", err.Error())
-		return false, fmt.Errorf("FindUserByLogin err: %w", err)
+		c.log.Errorf("find user by login error: %s", err.Error())
+		return false, fmt.Errorf("find user by login error: %s", err.Error())
 	}
 
 	return found, nil
-}
-
-func RandStringRunes(seed int) string {
-	symbols := make([]rune, seed)
-	for i := range symbols {
-		symbols[i] = letterRunes[rand.Intn(len(letterRunes))]
-	}
-	return string(symbols)
 }
