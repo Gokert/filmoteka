@@ -1,50 +1,41 @@
 FROM golang:1.21-alpine AS builder
-
 WORKDIR /build
-
 COPY . .
-
 RUN go build ./cmd/main.go
 
-FROM ubuntu:20.04
+FROM ubuntu:latest
+
+FROM redis:latest
 
 ENV DEBIAN_FRONTEND=noninteractive
-
 RUN apt-get update && apt-get -y install postgresql postgresql-contrib ca-certificates
-
 USER postgres
-
 COPY /scripts /opt/scripts
-
 RUN service postgresql start && \
         psql -c "CREATE USER admin WITH superuser login password 'admin';" && \
         psql -c "ALTER ROLE admin WITH PASSWORD 'admin';" && \
-        createdb -O admin vk && \
-        psql -f ./opt/scripts/sql/init_db.sql -d vk
-
+        createdb -O admin vk_filmoteka && \
+        psql -f ./opt/scripts/sql/init_db.sql -d vk_filmoteka
 VOLUME ["/etc/postgresql", "/var/log/postgresql", "/var/lib/postgresql"]
 
 USER root
 
-WORKDIR /proxy
+WORKDIR /filmoteka
 COPY --from=builder /build/main .
 
 COPY . .
 
-EXPOSE 8080
-EXPOSE 8000
+EXPOSE 8081
+EXPOSE 6379
 EXPOSE 5432
 
-ENV PROXY_PORT=8080
-ENV REPEATER_PORT=8000
+ENV APPLICATION_PORT=8081
+ENV PSX_PORT=6379
+ENV REDIS_PORT=5432
 ENV DB_USER=user
-ENV DB_NAME=Requests
+ENV DB_NAME=vk_filmoteka
 
-#RUN ["chmod", "777", "/opt/scripts/install_ca.sh"]
-#
-#RUN bash "/opt/scripts/install_ca.sh"
 
-#ENTRYPOINT ["sh", "/opt/scripts/bash/generate_ca.sh"]
-#ENTRYPOINT ["sh", "/opt/scripts/bash/install_ca.sh"]
 
+#CMD ["docker-compose", "up"]
 CMD service postgresql start && ./main

@@ -211,13 +211,6 @@ const docTemplate = `{
                 "operationId": "update-actor",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "Actor ID",
-                        "name": "actor_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
                         "type": "string",
                         "description": "Session ID",
                         "name": "session_id",
@@ -452,7 +445,7 @@ const docTemplate = `{
                         "type": "integer",
                         "description": "Film ID",
                         "name": "film_id",
-                        "in": "path",
+                        "in": "query",
                         "required": true
                     },
                     {
@@ -586,13 +579,6 @@ const docTemplate = `{
                 "summary": "update film information",
                 "operationId": "update-film",
                 "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Film ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
                     {
                         "type": "string",
                         "description": "Session ID",
@@ -908,9 +894,6 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "login": {
-                    "type": "string"
-                },
-                "role": {
                     "type": "string"
                 }
             }

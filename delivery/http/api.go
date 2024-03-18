@@ -269,8 +269,6 @@ func (a *Api) AddActor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.log.Warning(r.Cookies())
-
 	var request models.ActorItem
 
 	body, err := io.ReadAll(r.Body)
@@ -431,7 +429,7 @@ func (a *Api) FindFilms(w http.ResponseWriter, r *http.Request) {
 // @Tags Film
 // @Accept json
 // @Produce json
-// @Param film_id path uint64 true "Film ID"
+// @Param film_id query integer true "Film ID"
 // @Param session_id header string false "Session ID"
 // @Success 200 {object} models.Response
 // @Failure 400 {object} models.Response
@@ -470,7 +468,6 @@ func (a *Api) DeleteFilm(w http.ResponseWriter, r *http.Request) {
 // @ID update-film
 // @Produce json
 // @Consume json
-// @Param id path int true "Film ID"
 // @Param session_id header string false "Session ID"
 // @Param Film body models.FilmRequest true "Updated Film Information"
 // @Success 200 {object} models.Response
@@ -600,7 +597,6 @@ func (a *Api) DeleteActor(w http.ResponseWriter, r *http.Request) {
 // @ID update-actor
 // @Produce json
 // @Consume json
-// @Param actor_id path int true "Actor ID"
 // @Param session_id header string false "Session ID"
 // @Param Actor body models.ActorRequest true "Updated Actor Information"
 // @Success 200 {object} models.Response
@@ -726,7 +722,6 @@ func (a *Api) AuthAccept(w http.ResponseWriter, r *http.Request) {
 
 	response.Body = models.AuthCheckResponse{
 		Login: login,
-		Role:  "hui",
 	}
 
 	httpResponse.SendResponse(w, r, &response, a.log)

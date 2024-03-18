@@ -30,8 +30,6 @@ definitions:
     properties:
       login:
         type: string
-      role:
-        type: string
     type: object
   models.FilmItem:
     properties:
@@ -224,11 +222,6 @@ paths:
     patch:
       operationId: update-actor
       parameters:
-      - description: Actor ID
-        in: path
-        name: actor_id
-        required: true
-        type: integer
       - description: Session ID
         in: header
         name: session_id
@@ -383,7 +376,7 @@ paths:
       description: deletes a film with the given ID
       parameters:
       - description: Film ID
-        in: path
+        in: query
         name: film_id
         required: true
         type: integer
@@ -474,11 +467,6 @@ paths:
     patch:
       operationId: update-film
       parameters:
-      - description: Film ID
-        in: path
-        name: id
-        required: true
-        type: integer
       - description: Session ID
         in: header
         name: session_id
