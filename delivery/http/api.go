@@ -2,6 +2,7 @@ package delivery
 
 import (
 	"encoding/json"
+	_ "filmoteka/docs"
 	"filmoteka/pkg/middleware"
 	"filmoteka/pkg/models"
 	httpResponse "filmoteka/pkg/response"
@@ -55,6 +56,19 @@ func (a *Api) ListenAndServe(port string) error {
 	return nil
 }
 
+// @Summary signIn
+// @Tags Auth
+// @Description authenticate user by providing login and password credentials
+// @ID authenticate-user
+// @Accept json
+// @Produce json
+// @Param input body models.SigninRequest false "login and password"
+// @Success 200 {object} models.Response
+// @Failure 400 {object} models.Response
+// @Failure 401 {object} models.Response
+// @Failure 405 {object} models.Response
+// @Failure 500 {object} models.Response
+// @Router /signin [post]
 func (a *Api) Signin(w http.ResponseWriter, r *http.Request) {
 	response := models.Response{Status: http.StatusOK, Body: nil}
 
@@ -72,7 +86,7 @@ func (a *Api) Signin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if authorized {
-		response.Status = http.StatusOK
+		response.Status = http.StatusConflict
 		httpResponse.SendResponse(w, r, &response, a.log)
 		return
 	}
@@ -122,6 +136,19 @@ func (a *Api) Signin(w http.ResponseWriter, r *http.Request) {
 	httpResponse.SendResponse(w, r, &response, a.log)
 }
 
+// @Summary signUp
+// @Tags Auth
+// @Desription create account
+// @ID create-account
+// @Accept json
+// @Produce json
+// @Param input body models.SignupRequest false "account information"
+// @Success 200 {object} models.Response
+// @Failure 400 {object} models.Response
+// @Failure 401 {object} models.Response
+// @Failure 405 {object} models.Response
+// @Failure 500 {object} models.Response
+// @Router /signup [post]
 func (a *Api) Signup(w http.ResponseWriter, r *http.Request) {
 	response := models.Response{Status: http.StatusOK, Body: nil}
 
@@ -172,6 +199,19 @@ func (a *Api) Signup(w http.ResponseWriter, r *http.Request) {
 	httpResponse.SendResponse(w, r, &response, a.log)
 }
 
+// @Summary add a new film
+// @Description add a new film along with associated actors
+// @Tags Film
+// @Accept json
+// @Produce json
+// @Param session_id header string false "Session ID"
+// @Param input body models.FilmRequest true "Film details and actors"
+// @Success 200 {object} models.Response
+// @Failure 400 {object} models.Response
+// @Failure 401 {object} models.Response
+// @Failure 405 {object} models.Response
+// @Failure 500 {object} models.Response
+// @Router /api/v1/films/add [post]
 func (a *Api) AddFilm(w http.ResponseWriter, r *http.Request) {
 	response := models.Response{Status: http.StatusOK, Body: nil}
 
@@ -207,6 +247,19 @@ func (a *Api) AddFilm(w http.ResponseWriter, r *http.Request) {
 	httpResponse.SendResponse(w, r, &response, a.log)
 }
 
+// @Summary add a new actor
+// @Description add a new actor
+// @Tags Actor
+// @Accept json
+// @Produce json
+// @Param session_id header string false "Session ID"
+// @Param input body models.ActorItem true "Actor details"
+// @Success 200 {object} models.Response
+// @Failure 400 {object} models.Response
+// @Failure 401 {object} models.Response
+// @Failure 405 {object} models.Response
+// @Failure 500 {object} models.Response
+// @Router /api/v1/actors/add [post]
 func (a *Api) AddActor(w http.ResponseWriter, r *http.Request) {
 	response := models.Response{Status: http.StatusOK, Body: nil}
 
@@ -215,6 +268,8 @@ func (a *Api) AddActor(w http.ResponseWriter, r *http.Request) {
 		httpResponse.SendResponse(w, r, &response, a.log)
 		return
 	}
+
+	a.log.Warning(r.Cookies())
 
 	var request models.ActorItem
 
@@ -242,6 +297,21 @@ func (a *Api) AddActor(w http.ResponseWriter, r *http.Request) {
 	httpResponse.SendResponse(w, r, &response, a.log)
 }
 
+// @Summary search for films by title and actor name
+// @Description search for films by title and actor name, optionally specify page number and size
+// @Tags Film
+// @Accept json
+// @Produce json
+// @Param title_film query string false "Movie title fragment"
+// @Param name_actor query string false "Actor name fragment"
+// @Param page query uint64 false "Page number (optional)" Enums(0)
+// @Param per_page query uint64 false "Number of results per page (optional)" Enums(8)
+// @Success 200 {object} models.Response
+// @Failure 400 {object} models.Response
+// @Failure 401 {object} models.Response
+// @Failure 405 {object} models.Response
+// @Failure 500 {object} models.Response
+// @Router /api/v1/films/search [get]
 func (a *Api) SearchFilms(w http.ResponseWriter, r *http.Request) {
 	response := models.Response{Status: http.StatusOK, Body: nil}
 
@@ -276,6 +346,26 @@ func (a *Api) SearchFilms(w http.ResponseWriter, r *http.Request) {
 	httpResponse.SendResponse(w, r, &response, a.log)
 }
 
+// @Summary find films based on various criteria
+// @Description get a list of films based on title, actor, release date, rating, and order
+// @Tags Film
+// @Accept json
+// @Produce json
+// @Param title query string false "Film title" example:"The Shawshank Redemption"
+// @Param actor query string false "Actor name" example:"Tim Robbins"
+// @Param release_date_from query string false "Release date from" format="date" example:"1994-01-01"
+// @Param release_date_to query string false "Release date to" format="date" example:"1995-12-31"
+// @Param rating_from query number false "Minimum rating" example:"7.0" minimum="0" maximum="10"
+// @Param rating_to query number false "Maximum rating" example:"8.5" minimum="0" maximum="10"
+// @Param order query string false "Sorting order" enum:"asc,desc" default:"desc"
+// @Param page query integer false "Page number" example:"1" minimum="1"
+// @Param per_page query integer false "Number of items per page" example:"20" minimum="1" maximum="100"
+// @Success 200 {object} models.FilmsResponse "Successful response"
+// @Failure 400 {object} models.Response
+// @Failure 401 {object} models.Response
+// @Failure 405 {object} models.Response
+// @Failure 500 {object} models.Response
+// @Router /api/v1/films [get]
 func (a *Api) FindFilms(w http.ResponseWriter, r *http.Request) {
 	response := models.Response{Status: http.StatusOK, Body: nil}
 
@@ -336,6 +426,19 @@ func (a *Api) FindFilms(w http.ResponseWriter, r *http.Request) {
 	httpResponse.SendResponse(w, r, &response, a.log)
 }
 
+// @Summary delete a film by ID
+// @Description deletes a film with the given ID
+// @Tags Film
+// @Accept json
+// @Produce json
+// @Param film_id path uint64 true "Film ID"
+// @Param session_id header string false "Session ID"
+// @Success 200 {object} models.Response
+// @Failure 400 {object} models.Response
+// @Failure 401 {object} models.Response
+// @Failure 405 {object} models.Response
+// @Failure 500 {object} models.Response
+// @Router /api/v1/films/delete [delete]
 func (a *Api) DeleteFilm(w http.ResponseWriter, r *http.Request) {
 	response := models.Response{Status: http.StatusOK, Body: nil}
 
@@ -362,6 +465,20 @@ func (a *Api) DeleteFilm(w http.ResponseWriter, r *http.Request) {
 	httpResponse.SendResponse(w, r, &response, a.log)
 }
 
+// @Summary update film information
+// @Tags Film
+// @ID update-film
+// @Produce json
+// @Consume json
+// @Param id path int true "Film ID"
+// @Param session_id header string false "Session ID"
+// @Param Film body models.FilmRequest true "Updated Film Information"
+// @Success 200 {object} models.Response
+// @Failure 400 {object} models.Response
+// @Failure 401 {object} models.Response
+// @Failure 405 {object} models.Response
+// @Failure 500 {object} models.Response
+// @Router /api/v1/films/update [patch]
 func (a *Api) UpdateFilm(w http.ResponseWriter, r *http.Request) {
 	response := models.Response{Status: http.StatusOK, Body: nil}
 
@@ -397,6 +514,18 @@ func (a *Api) UpdateFilm(w http.ResponseWriter, r *http.Request) {
 	httpResponse.SendResponse(w, r, &response, a.log)
 }
 
+// @Summary get list of actors with pagination
+// @Tags Actor
+// @ID find-actors
+// @Produce json
+// @Param page query uint64 false "Page number, starting from 0 (optional)"
+// @Param per_size query uint64 false "Number of items per page, defaults to 8 (optional)"
+// @Success 200 {array} models.ActorItem
+// @Failure 400 {object} models.Response
+// @Failure 401 {object} models.Response
+// @Failure 405 {object} models.Response
+// @Failure 500 {object} models.Response
+// @Router /api/v1/actors [get]
 func (a *Api) FindActors(w http.ResponseWriter, r *http.Request) {
 	response := models.Response{Status: http.StatusOK, Body: nil}
 
@@ -428,6 +557,18 @@ func (a *Api) FindActors(w http.ResponseWriter, r *http.Request) {
 	httpResponse.SendResponse(w, r, &response, a.log)
 }
 
+// @Summary delete actor by ID
+// @Tags Actor
+// @ID delete-actor
+// @Produce json
+// @Param actor_id query uint64 true "Actor ID"
+// @Param session_id header string false "Session ID"
+// @Success 200 {object} models.Response
+// @Failure 400 {object} models.Response
+// @Failure 401 {object} models.Response
+// @Failure 405 {object} models.Response
+// @Failure 500 {object} models.Response
+// @Router /api/v1/actors/delete [delete]
 func (a *Api) DeleteActor(w http.ResponseWriter, r *http.Request) {
 	response := models.Response{Status: http.StatusOK, Body: nil}
 
@@ -454,6 +595,20 @@ func (a *Api) DeleteActor(w http.ResponseWriter, r *http.Request) {
 	httpResponse.SendResponse(w, r, &response, a.log)
 }
 
+// @Summary update actor information
+// @Tags Actor
+// @ID update-actor
+// @Produce json
+// @Consume json
+// @Param actor_id path int true "Actor ID"
+// @Param session_id header string false "Session ID"
+// @Param Actor body models.ActorRequest true "Updated Actor Information"
+// @Success 200 {object} models.Response
+// @Failure 400 {object} models.Response
+// @Failure 401 {object} models.Response
+// @Failure 405 {object} models.Response
+// @Failure 500 {object} models.Response
+// @Router /api/v1/actors/update [patch]
 func (a *Api) UpdateActor(w http.ResponseWriter, r *http.Request) {
 	response := models.Response{Status: http.StatusOK, Body: nil}
 
@@ -489,6 +644,17 @@ func (a *Api) UpdateActor(w http.ResponseWriter, r *http.Request) {
 	httpResponse.SendResponse(w, r, &response, a.log)
 }
 
+// @Summary end current user session
+// @Tags Auth
+// @ID logout
+// @Produce json
+// @Param session_id header string false "Session ID"
+// @Success 200 {object} models.Response
+// @Failure 400 {object} models.Response
+// @Failure 401 {object} models.Response
+// @Failure 405 {object} models.Response
+// @Failure 500 {object} models.Response
+// @Router /logout [delete]
 func (a *Api) Logout(w http.ResponseWriter, r *http.Request) {
 	response := models.Response{Status: http.StatusOK, Body: nil}
 
@@ -518,6 +684,17 @@ func (a *Api) Logout(w http.ResponseWriter, r *http.Request) {
 	httpResponse.SendResponse(w, r, &response, a.log)
 }
 
+// @summary check authentication status and return user info
+// @description returns user info if they are currently logged in
+// @Tags Auth
+// @produce application/json
+// @Param session_id header string false "Session ID"
+// @success 200 {object} models.AuthCheckResponse
+// @Failure 400 {object} models.Response
+// @Failure 401 {object} models.Response
+// @Failure 405 {object} models.Response
+// @Failure 500 {object} models.Response
+// @router /authcheck [get]
 func (a *Api) AuthAccept(w http.ResponseWriter, r *http.Request) {
 	response := models.Response{Status: http.StatusOK, Body: nil}
 	var authorized bool
