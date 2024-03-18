@@ -1,0 +1,649 @@
+basePath: /
+definitions:
+  models.ActorItem:
+    properties:
+      birthdate:
+        type: string
+      gen:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+    type: object
+  models.ActorRequest:
+    properties:
+      birthday:
+        type: string
+      films:
+        items:
+          type: integer
+        type: array
+      gen:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+    type: object
+  models.AuthCheckResponse:
+    properties:
+      login:
+        type: string
+    type: object
+  models.FilmItem:
+    properties:
+      id:
+        type: integer
+      info:
+        type: string
+      rating:
+        type: number
+      release_date:
+        type: string
+      title:
+        type: string
+    type: object
+  models.FilmRequest:
+    properties:
+      actors:
+        items:
+          type: integer
+        type: array
+      id:
+        type: integer
+      info:
+        type: string
+      rating:
+        type: number
+      release_date:
+        type: string
+      title:
+        type: string
+    type: object
+  models.FilmsResponse:
+    properties:
+      films:
+        items:
+          $ref: '#/definitions/models.FilmItem'
+        type: array
+      total:
+        type: integer
+    type: object
+  models.Response:
+    properties:
+      body: {}
+      status:
+        type: integer
+    type: object
+  models.SigninRequest:
+    properties:
+      login:
+        type: string
+      password:
+        type: string
+    type: object
+  models.SignupRequest:
+    properties:
+      login:
+        type: string
+      password:
+        type: string
+    type: object
+host: 127.0.0.1:8081
+info:
+  contact: {}
+  description: API Server fot Application
+  title: filmoteka App API
+  version: "1.0"
+paths:
+  /api/v1/actors:
+    get:
+      operationId: find-actors
+      parameters:
+      - description: Page number, starting from 0 (optional)
+        in: query
+        name: page
+        type: integer
+      - description: Number of items per page, defaults to 8 (optional)
+        in: query
+        name: per_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.ActorItem'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.Response'
+        "405":
+          description: Method Not Allowed
+          schema:
+            $ref: '#/definitions/models.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.Response'
+      summary: get list of actors with pagination
+      tags:
+      - Actor
+  /api/v1/actors/add:
+    post:
+      consumes:
+      - application/json
+      description: add a new actor
+      parameters:
+      - description: Session ID
+        in: header
+        name: session_id
+        type: string
+      - description: Actor details
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/models.ActorItem'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.Response'
+        "405":
+          description: Method Not Allowed
+          schema:
+            $ref: '#/definitions/models.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.Response'
+      summary: add a new actor
+      tags:
+      - Actor
+  /api/v1/actors/delete:
+    delete:
+      operationId: delete-actor
+      parameters:
+      - description: Actor ID
+        in: query
+        name: actor_id
+        required: true
+        type: integer
+      - description: Session ID
+        in: header
+        name: session_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.Response'
+        "405":
+          description: Method Not Allowed
+          schema:
+            $ref: '#/definitions/models.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.Response'
+      summary: delete actor by ID
+      tags:
+      - Actor
+  /api/v1/actors/update:
+    patch:
+      operationId: update-actor
+      parameters:
+      - description: Session ID
+        in: header
+        name: session_id
+        type: string
+      - description: Updated Actor Information
+        in: body
+        name: Actor
+        required: true
+        schema:
+          $ref: '#/definitions/models.ActorRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.Response'
+        "405":
+          description: Method Not Allowed
+          schema:
+            $ref: '#/definitions/models.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.Response'
+      summary: update actor information
+      tags:
+      - Actor
+  /api/v1/films:
+    get:
+      consumes:
+      - application/json
+      description: get a list of films based on title, actor, release date, rating,
+        and order
+      parameters:
+      - description: Film title
+        in: query
+        name: title
+        type: string
+      - description: Actor name
+        in: query
+        name: actor
+        type: string
+      - description: Release date from
+        in: query
+        name: release_date_from
+        type: string
+      - description: Release date to
+        in: query
+        name: release_date_to
+        type: string
+      - description: Minimum rating
+        in: query
+        name: rating_from
+        type: number
+      - description: Maximum rating
+        in: query
+        name: rating_to
+        type: number
+      - description: Sorting order
+        in: query
+        name: order
+        type: string
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Number of items per page
+        in: query
+        name: per_page
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successful response
+          schema:
+            $ref: '#/definitions/models.FilmsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.Response'
+        "405":
+          description: Method Not Allowed
+          schema:
+            $ref: '#/definitions/models.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.Response'
+      summary: find films based on various criteria
+      tags:
+      - Film
+  /api/v1/films/add:
+    post:
+      consumes:
+      - application/json
+      description: add a new film along with associated actors
+      parameters:
+      - description: Session ID
+        in: header
+        name: session_id
+        type: string
+      - description: Film details and actors
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/models.FilmRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.Response'
+        "405":
+          description: Method Not Allowed
+          schema:
+            $ref: '#/definitions/models.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.Response'
+      summary: add a new film
+      tags:
+      - Film
+  /api/v1/films/delete:
+    delete:
+      consumes:
+      - application/json
+      description: deletes a film with the given ID
+      parameters:
+      - description: Film ID
+        in: query
+        name: film_id
+        required: true
+        type: integer
+      - description: Session ID
+        in: header
+        name: session_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.Response'
+        "405":
+          description: Method Not Allowed
+          schema:
+            $ref: '#/definitions/models.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.Response'
+      summary: delete a film by ID
+      tags:
+      - Film
+  /api/v1/films/search:
+    get:
+      consumes:
+      - application/json
+      description: search for films by title and actor name, optionally specify page
+        number and size
+      parameters:
+      - description: Movie title fragment
+        in: query
+        name: title_film
+        type: string
+      - description: Actor name fragment
+        in: query
+        name: name_actor
+        type: string
+      - description: Page number (optional)
+        enum:
+        - 0
+        in: query
+        name: page
+        type: integer
+      - description: Number of results per page (optional)
+        enum:
+        - 8
+        in: query
+        name: per_page
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.Response'
+        "405":
+          description: Method Not Allowed
+          schema:
+            $ref: '#/definitions/models.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.Response'
+      summary: search for films by title and actor name
+      tags:
+      - Film
+  /api/v1/films/update:
+    patch:
+      operationId: update-film
+      parameters:
+      - description: Session ID
+        in: header
+        name: session_id
+        type: string
+      - description: Updated Film Information
+        in: body
+        name: Film
+        required: true
+        schema:
+          $ref: '#/definitions/models.FilmRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.Response'
+        "405":
+          description: Method Not Allowed
+          schema:
+            $ref: '#/definitions/models.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.Response'
+      summary: update film information
+      tags:
+      - Film
+  /authcheck:
+    get:
+      description: returns user info if they are currently logged in
+      parameters:
+      - description: Session ID
+        in: header
+        name: session_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.AuthCheckResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.Response'
+        "405":
+          description: Method Not Allowed
+          schema:
+            $ref: '#/definitions/models.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.Response'
+      summary: check authentication status and return user info
+      tags:
+      - Auth
+  /logout:
+    delete:
+      operationId: logout
+      parameters:
+      - description: Session ID
+        in: header
+        name: session_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.Response'
+        "405":
+          description: Method Not Allowed
+          schema:
+            $ref: '#/definitions/models.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.Response'
+      summary: end current user session
+      tags:
+      - Auth
+  /signin:
+    post:
+      consumes:
+      - application/json
+      description: authenticate user by providing login and password credentials
+      operationId: authenticate-user
+      parameters:
+      - description: login and password
+        in: body
+        name: input
+        schema:
+          $ref: '#/definitions/models.SigninRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.Response'
+        "405":
+          description: Method Not Allowed
+          schema:
+            $ref: '#/definitions/models.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.Response'
+      summary: signIn
+      tags:
+      - Auth
+  /signup:
+    post:
+      consumes:
+      - application/json
+      operationId: create-account
+      parameters:
+      - description: account information
+        in: body
+        name: input
+        schema:
+          $ref: '#/definitions/models.SignupRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.Response'
+        "405":
+          description: Method Not Allowed
+          schema:
+            $ref: '#/definitions/models.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.Response'
+      summary: signUp
+      tags:
+      - Auth
+swagger: "2.0"
