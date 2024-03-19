@@ -1,24 +1,23 @@
-version: "3.9"
+version: '3'
 services:
+  redis:
+    image: "redis:latest"
+    ports:
+      - "6378:6379"
+    networks:
+      - net
+
   app:
     build:
       context: .
-      args:
-        - BUILDER_IMAGE=myproject_builder:latest
-    expose:
-      - "8081"
-      - "6379"
-      - "5432"
-    env_file:
-      - .env
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8081"
     depends_on:
-      - postgres
-  postgres:
-    image: postgres:latest
-    restart: always
-    volumes:
-      - postgres_volume:/var/lib/postgresql/data
-    env_file:
-      - .env
-volumes:
-  postgres_volume:
+      - redis
+    networks:
+      - net
+
+networks:
+  net:
+    driver: bridge

@@ -5,8 +5,6 @@ RUN go build ./cmd/main.go
 
 FROM ubuntu:latest
 
-FROM redis:latest
-
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get -y install postgresql postgresql-contrib ca-certificates
 USER postgres
@@ -20,24 +18,10 @@ VOLUME ["/etc/postgresql", "/var/log/postgresql", "/var/lib/postgresql"]
 
 USER root
 
-WORKDIR /filmoteka
+WORKDIR /rest
 COPY --from=builder /build/main .
 
 COPY . .
-
-EXPOSE 8081
-EXPOSE 6379
-EXPOSE 5432
-
-ENV APPLICATION_PORT=8081
-ENV PSX_PORT=6379
-ENV REDIS_PORT=5432
-ENV DB_USER=user
-ENV DB_NAME=vk_filmoteka
-
-CMD service redis-server start && service postgresql start && \
-    nohup /app/authorization > /dev/null 2>&1 & && \
-    nohup /app/films > /dev/null 2>&1 &
 
 
 CMD service postgresql start && ./main
