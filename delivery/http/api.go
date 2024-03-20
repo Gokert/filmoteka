@@ -78,19 +78,6 @@ func (a *Api) Signin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var authorized bool
-
-	sessionCookie, err := r.Cookie("session_id")
-	if err == nil && sessionCookie != nil {
-		authorized, _ = a.core.FindActiveSession(r.Context(), sessionCookie.Value)
-	}
-
-	if authorized {
-		response.Status = http.StatusConflict
-		httpResponse.SendResponse(w, r, &response, a.log)
-		return
-	}
-
 	var request models.SigninRequest
 
 	body, err := io.ReadAll(r.Body)
