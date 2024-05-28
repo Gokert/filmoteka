@@ -44,8 +44,8 @@ func GetCore(psxCfg *configs.DbPsxConfig, redisCfg *configs.DbRedisCfg, log *log
 	return core, nil
 }
 
-func (c *Core) GetFilms(request *models.FindFilmRequest) (*[]models.FilmItem, error) {
-	films, err := c.films.GetFilms(request)
+func (c *Core) GetFilms(ctx context.Context, request *models.FindFilmRequest) (*[]models.FilmItem, error) {
+	films, err := c.films.GetFilms(ctx, request)
 	if err != nil {
 		c.log.Errorf("get films error: %s", err.Error())
 		return nil, fmt.Errorf("get films error: %s", err.Error())
@@ -64,7 +64,7 @@ func (c *Core) GetUserId(ctx context.Context, sid string) (uint64, error) {
 		return 0, fmt.Errorf("get user login error: %s", err.Error())
 	}
 
-	id, err := c.profiles.GetUserId(login)
+	id, err := c.profiles.GetUserId(ctx, login)
 	if err != nil {
 		c.log.Errorf("get user id error: %s", err.Error())
 		return 0, fmt.Errorf("get user id error: %s", err.Error())
@@ -73,8 +73,8 @@ func (c *Core) GetUserId(ctx context.Context, sid string) (uint64, error) {
 	return id, nil
 }
 
-func (c *Core) GetRole(userId uint64) (string, error) {
-	role, err := c.profiles.GetRole(userId)
+func (c *Core) GetRole(ctx context.Context, userId uint64) (string, error) {
+	role, err := c.profiles.GetRole(ctx, userId)
 	if err != nil {
 		c.log.Errorf("get role error: %s", err.Error())
 		return "", fmt.Errorf("get role error: %s", err.Error())
@@ -83,7 +83,7 @@ func (c *Core) GetRole(userId uint64) (string, error) {
 	return role, nil
 }
 
-func (c *Core) AddFilm(film *models.FilmRequest, actors []uint64) (uint64, error) {
+func (c *Core) AddFilm(ctx context.Context, film *models.FilmRequest, actors []uint64) (uint64, error) {
 	if film.Rating < utils.FilmRatingBegin || film.Rating > utils.FilmRatingEnd {
 		c.log.Error(utils.RatingSizeError)
 		return 0, fmt.Errorf(utils.RatingSizeError)
@@ -99,13 +99,13 @@ func (c *Core) AddFilm(film *models.FilmRequest, actors []uint64) (uint64, error
 		return 0, err
 	}
 
-	filmId, err := c.films.AddFilm(film)
+	filmId, err := c.films.AddFilm(ctx, film)
 	if err != nil {
 		c.log.Error("add film error: ", err)
 		return 0, fmt.Errorf("add film error: %w", err)
 	}
 
-	err = c.films.AddActorsForFilm(filmId, actors)
+	err = c.films.AddActorsForFilm(ctx, filmId, actors)
 	if err != nil {
 		c.log.Error("AddActorsForFilm error: ", err.Error())
 		return 0, fmt.Errorf("AddActorsForFilm error: %w", err)
@@ -114,8 +114,8 @@ func (c *Core) AddFilm(film *models.FilmRequest, actors []uint64) (uint64, error
 	return filmId, nil
 }
 
-func (c *Core) AddActor(actor *models.ActorItem) (uint64, error) {
-	actorId, err := c.films.AddActor(actor)
+func (c *Core) AddActor(ctx context.Context, actor *models.ActorItem) (uint64, error) {
+	actorId, err := c.films.AddActor(ctx, actor)
 	if err != nil {
 		c.log.Errorf("add actor error: %s", err.Error())
 		return 0, fmt.Errorf("add actor error: %s", err.Error())
@@ -124,8 +124,8 @@ func (c *Core) AddActor(actor *models.ActorItem) (uint64, error) {
 	return actorId, nil
 }
 
-func (c *Core) SearchFilms(titleFilm string, nameActor string, page uint64, perPage uint64) ([]models.FilmItem, error) {
-	films, err := c.films.SearchFilms(titleFilm, nameActor, page, perPage)
+func (c *Core) SearchFilms(ctx context.Context, titleFilm string, nameActor string, page uint64, perPage uint64) ([]models.FilmItem, error) {
+	films, err := c.films.SearchFilms(ctx, titleFilm, nameActor, page, perPage)
 	if err != nil {
 		c.log.Errorf("SearchFilms error: %s", err.Error())
 		return nil, fmt.Errorf("SearchFilms error: %s", err.Error())
@@ -134,8 +134,8 @@ func (c *Core) SearchFilms(titleFilm string, nameActor string, page uint64, perP
 	return films, nil
 }
 
-func (c *Core) UpdateFilm(film *models.FilmRequest) error {
-	err := c.films.UpdateFilm(film)
+func (c *Core) UpdateFilm(ctx context.Context, film *models.FilmRequest) error {
+	err := c.films.UpdateFilm(ctx, film)
 	if err != nil {
 		c.log.Errorf("change film error: %s", err.Error())
 		return fmt.Errorf("change film error: %s", err.Error())
@@ -144,8 +144,8 @@ func (c *Core) UpdateFilm(film *models.FilmRequest) error {
 	return nil
 }
 
-func (c *Core) UpdateActor(actor *models.ActorRequest) error {
-	err := c.films.UpdateActor(actor)
+func (c *Core) UpdateActor(ctx context.Context, actor *models.ActorRequest) error {
+	err := c.films.UpdateActor(ctx, actor)
 	if err != nil {
 		c.log.Errorf("change actor error: %s", err.Error())
 		return fmt.Errorf("change actor error: %s", err.Error())
@@ -154,8 +154,8 @@ func (c *Core) UpdateActor(actor *models.ActorRequest) error {
 	return nil
 }
 
-func (c *Core) DeleteFilm(filmId uint64) (bool, error) {
-	_, err := c.films.DeleteFilm(filmId)
+func (c *Core) DeleteFilm(ctx context.Context, filmId uint64) (bool, error) {
+	_, err := c.films.DeleteFilm(ctx, filmId)
 	if err != nil {
 		c.log.Errorf("delete film error: %s", err.Error())
 		return false, fmt.Errorf("delete film error: %s", err.Error())
@@ -164,8 +164,8 @@ func (c *Core) DeleteFilm(filmId uint64) (bool, error) {
 	return true, nil
 }
 
-func (c *Core) FindActors(page uint64, perPage uint64) ([]models.ActorResponse, error) {
-	actors, err := c.films.FindActors(page, perPage)
+func (c *Core) FindActors(ctx context.Context, page uint64, perPage uint64) ([]models.ActorResponse, error) {
+	actors, err := c.films.FindActors(ctx, page, perPage)
 	if err != nil {
 		c.log.Errorf("find actors error: %s", err.Error())
 		return nil, fmt.Errorf("find actors error: %s", err.Error())
@@ -174,8 +174,8 @@ func (c *Core) FindActors(page uint64, perPage uint64) ([]models.ActorResponse, 
 	return actors, nil
 }
 
-func (c *Core) DeleteActor(actorId uint64) error {
-	err := c.films.DeleteActor(actorId)
+func (c *Core) DeleteActor(ctx context.Context, actorId uint64) error {
+	err := c.films.DeleteActor(ctx, actorId)
 	if err != nil {
 		c.log.Errorf("delete actor error: %s", err.Error())
 		return fmt.Errorf("delete actor error: %s", err.Error())
@@ -247,9 +247,9 @@ func (c *Core) KillSession(ctx context.Context, sid string) error {
 	return nil
 }
 
-func (c *Core) CreateUserAccount(login string, password string) error {
+func (c *Core) CreateUserAccount(ctx context.Context, login string, password string) error {
 	hashPassword := utils.HashPassword(password)
-	err := c.profiles.CreateUser(login, hashPassword)
+	err := c.profiles.CreateUser(ctx, login, hashPassword)
 	if err != nil {
 		c.log.Errorf("create user account error: %s", err.Error())
 		return fmt.Errorf("create user account error: %s", err.Error())
@@ -258,9 +258,9 @@ func (c *Core) CreateUserAccount(login string, password string) error {
 	return nil
 }
 
-func (c *Core) FindUserAccount(login string, password string) (*models.UserItem, bool, error) {
+func (c *Core) FindUserAccount(ctx context.Context, login string, password string) (*models.UserItem, bool, error) {
 	hashPassword := utils.HashPassword(password)
-	user, found, err := c.profiles.GetUser(login, hashPassword)
+	user, found, err := c.profiles.GetUser(ctx, login, hashPassword)
 	if err != nil {
 		c.log.Errorf("find user error: %s", err.Error())
 		return nil, false, fmt.Errorf("find user account error: %s", err.Error())
@@ -268,8 +268,8 @@ func (c *Core) FindUserAccount(login string, password string) (*models.UserItem,
 	return user, found, nil
 }
 
-func (c *Core) FindUserByLogin(login string) (bool, error) {
-	found, err := c.profiles.FindUser(login)
+func (c *Core) FindUserByLogin(ctx context.Context, login string) (bool, error) {
+	found, err := c.profiles.FindUser(ctx, login)
 	if err != nil {
 		c.log.Errorf("find user by login error: %s", err.Error())
 		return false, fmt.Errorf("find user by login error: %s", err.Error())

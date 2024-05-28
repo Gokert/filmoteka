@@ -14,7 +14,6 @@ import (
 // @description API Server fot Application
 // @host 127.0.0.1:8081
 // @BasePath /
-
 func main() {
 	log := logger.GetLogger()
 	err := godotenv.Load()
@@ -23,13 +22,13 @@ func main() {
 		return
 	}
 
-	psxCfg, err := configs.GetPsxConfig("configs/db_psx.yaml")
+	psxCfg, err := configs.GetPsxConfig()
 	if err != nil {
 		log.Error("Create psx config error: ", err)
 		return
 	}
 
-	redisCfg, err := configs.GetRedisConfig("configs/db_redis.yaml")
+	redisCfg, err := configs.GetRedisConfig()
 	if err != nil {
 		log.Error("Create redis config error: ", err)
 		return

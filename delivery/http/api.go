@@ -96,7 +96,7 @@ func (a *Api) Signin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, found, err := a.core.FindUserAccount(request.Login, request.Password)
+	_, found, err := a.core.FindUserAccount(r.Context(), request.Login, request.Password)
 	if err != nil {
 		a.log.Error("Signin error: ", err.Error())
 		response.Status = http.StatusInternalServerError
@@ -161,7 +161,7 @@ func (a *Api) Signup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	found, err := a.core.FindUserByLogin(request.Login)
+	found, err := a.core.FindUserByLogin(r.Context(), request.Login)
 	if err != nil {
 		a.log.Error("Signup error: ", err.Error())
 		response.Status = http.StatusInternalServerError
@@ -175,7 +175,7 @@ func (a *Api) Signup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = a.core.CreateUserAccount(request.Login, request.Password)
+	err = a.core.CreateUserAccount(r.Context(), request.Login, request.Password)
 	if err != nil {
 		a.log.Error("create user error: ", err.Error())
 		response.Status = http.StatusBadRequest
@@ -224,7 +224,7 @@ func (a *Api) AddFilm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = a.core.AddFilm(&request, request.Actors)
+	_, err = a.core.AddFilm(r.Context(), &request, request.Actors)
 	if err != nil {
 		response.Status = http.StatusInternalServerError
 		httpResponse.SendResponse(w, r, &response, a.log)
@@ -272,7 +272,7 @@ func (a *Api) AddActor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = a.core.AddActor(&request)
+	_, err = a.core.AddActor(r.Context(), &request)
 	if err != nil {
 		response.Status = http.StatusInternalServerError
 		httpResponse.SendResponse(w, r, &response, a.log)
@@ -319,7 +319,7 @@ func (a *Api) SearchFilms(w http.ResponseWriter, r *http.Request) {
 		pageSize = 8
 	}
 
-	films, err := a.core.SearchFilms(titleFilm, nameActor, page, pageSize)
+	films, err := a.core.SearchFilms(r.Context(), titleFilm, nameActor, page, pageSize)
 	if err != nil {
 		response.Status = http.StatusInternalServerError
 		httpResponse.SendResponse(w, r, &response, a.log)
@@ -398,7 +398,7 @@ func (a *Api) FindFilms(w http.ResponseWriter, r *http.Request) {
 		Order:           order,
 	}
 
-	films, err := a.core.GetFilms(request)
+	films, err := a.core.GetFilms(r.Context(), request)
 	if err != nil {
 		return
 	}
@@ -440,7 +440,7 @@ func (a *Api) DeleteFilm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = a.core.DeleteFilm(filmId)
+	_, err = a.core.DeleteFilm(r.Context(), filmId)
 	if err != nil {
 		response.Status = http.StatusInternalServerError
 		httpResponse.SendResponse(w, r, &response, a.log)
@@ -488,7 +488,7 @@ func (a *Api) UpdateFilm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = a.core.UpdateFilm(&request)
+	err = a.core.UpdateFilm(r.Context(), &request)
 	if err != nil {
 		response.Status = http.StatusInternalServerError
 		httpResponse.SendResponse(w, r, &response, a.log)
@@ -529,7 +529,7 @@ func (a *Api) FindActors(w http.ResponseWriter, r *http.Request) {
 		perSize = 8
 	}
 
-	actors, err := a.core.FindActors(page, perSize)
+	actors, err := a.core.FindActors(r.Context(), page, perSize)
 	if err != nil {
 		response.Status = http.StatusInternalServerError
 		httpResponse.SendResponse(w, r, &response, a.log)
@@ -569,7 +569,7 @@ func (a *Api) DeleteActor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = a.core.DeleteActor(actorId)
+	err = a.core.DeleteActor(r.Context(), actorId)
 	if err != nil {
 		response.Status = http.StatusInternalServerError
 		httpResponse.SendResponse(w, r, &response, a.log)
@@ -617,7 +617,7 @@ func (a *Api) UpdateActor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = a.core.UpdateActor(&request)
+	err = a.core.UpdateActor(r.Context(), &request)
 	if err != nil {
 		response.Status = http.StatusInternalServerError
 		httpResponse.SendResponse(w, r, &response, a.log)

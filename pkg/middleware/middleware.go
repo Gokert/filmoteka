@@ -15,7 +15,7 @@ const UserIDKey contextKey = "userId"
 
 type Core interface {
 	GetUserId(ctx context.Context, sid string) (uint64, error)
-	GetRole(userId uint64) (string, error)
+	GetRole(ctx context.Context, userId uint64) (string, error)
 }
 
 func AuthCheck(next http.Handler, core Core, lg *logrus.Logger) http.Handler {
@@ -54,7 +54,7 @@ func CheckRole(next http.Handler, core Core, lg *logrus.Logger) http.Handler {
 			return
 		}
 
-		result, err := core.GetRole(userId)
+		result, err := core.GetRole(r.Context(), userId)
 		if err != nil {
 			lg.Error("auth check error", "err", err.Error())
 			next.ServeHTTP(w, r)

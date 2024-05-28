@@ -1,11 +1,14 @@
 package psx
 
-import "filmoteka/pkg/models"
+import (
+	"context"
+	"filmoteka/pkg/models"
+)
 
 type IProfileRepo interface {
-	GetUser(login string, password []byte) (*models.UserItem, bool, error)
-	FindUser(login string) (bool, error)
-	CreateUser(login string, password []byte) error
-	GetUserId(login string) (uint64, error)
-	GetRole(userId uint64) (string, error)
+	GetUser(ctx context.Context, login string, password []byte) (*models.UserItem, bool, error)
+	FindUser(ctx context.Context, login string) (bool, error)
+	CreateUser(ctx context.Context, login string, password []byte) error
+	GetUserId(ctx context.Context, login string) (uint64, error)
+	GetRole(ctx context.Context, userId uint64) (string, error)
 }
