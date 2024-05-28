@@ -2,7 +2,7 @@
 
 Приложение запускается командой:
 ```
-docker-compose up
+make up
 ```
 ### Авторизация.
 #### POST /signin

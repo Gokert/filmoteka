@@ -5,6 +5,7 @@ import (
 	"filmoteka/configs/logger"
 	delivery "filmoteka/delivery/http"
 	"filmoteka/usecase"
+	"github.com/joho/godotenv"
 	_ "github.com/swaggo/swag"
 )
 
@@ -16,6 +17,11 @@ import (
 
 func main() {
 	log := logger.GetLogger()
+	err := godotenv.Load()
+	if err != nil {
+		log.Error("load .env error: ", err)
+		return
+	}
 
 	psxCfg, err := configs.GetPsxConfig("configs/db_psx.yaml")
 	if err != nil {

@@ -26,7 +26,7 @@ func GetAuthRepo(cfg *configs.DbRedisCfg, log *logrus.Logger) (ISessionRepo, err
 		return nil, err
 	}
 
-	log.Info("Redis created successful 1222")
+	log.Info("Redis created successful on ", cfg.Host)
 	return &SessionRepo{DB: redisClient}, nil
 }
 

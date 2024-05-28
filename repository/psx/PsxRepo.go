@@ -24,6 +24,8 @@ func GetFilmRepo(config *configs.DbPsxConfig, log *logrus.Logger) (*PsxRepo, err
 		log.Errorf("sql open error: %s", err.Error())
 		return nil, fmt.Errorf("get user repo err: %s", err.Error())
 	}
+	log.Info(dsn, 4334)
+
 	err = db.Ping()
 	if err != nil {
 		log.Errorf("sql ping error: %s", err.Error())
@@ -31,7 +33,7 @@ func GetFilmRepo(config *configs.DbPsxConfig, log *logrus.Logger) (*PsxRepo, err
 	}
 	db.SetMaxOpenConns(config.MaxOpenConns)
 
-	log.Info("Psx created successful")
+	log.Info("Postgres created successful on ", config.Port)
 	return &PsxRepo{DB: db}, nil
 }
 
