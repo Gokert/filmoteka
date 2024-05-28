@@ -17,6 +17,7 @@ type Core struct {
 	log      *logrus.Logger
 	mutex    sync.RWMutex
 	films    psx.IFilmRepo
+	actors   psx.IActorRepo
 	profiles psx.IProfileRepo
 	sessions session.ISessionRepo
 }
@@ -37,6 +38,7 @@ func GetCore(psxCfg *configs.DbPsxConfig, redisCfg *configs.DbRedisCfg, log *log
 	core := &Core{
 		log:      log,
 		films:    filmRepo,
+		actors:   filmRepo,
 		profiles: filmRepo,
 		sessions: authRepo,
 	}
@@ -115,7 +117,7 @@ func (c *Core) AddFilm(ctx context.Context, film *models.FilmRequest, actors []u
 }
 
 func (c *Core) AddActor(ctx context.Context, actor *models.ActorItem) (uint64, error) {
-	actorId, err := c.films.AddActor(ctx, actor)
+	actorId, err := c.actors.AddActor(ctx, actor)
 	if err != nil {
 		c.log.Errorf("add actor error: %s", err.Error())
 		return 0, fmt.Errorf("add actor error: %s", err.Error())
@@ -145,7 +147,7 @@ func (c *Core) UpdateFilm(ctx context.Context, film *models.FilmRequest) error {
 }
 
 func (c *Core) UpdateActor(ctx context.Context, actor *models.ActorRequest) error {
-	err := c.films.UpdateActor(ctx, actor)
+	err := c.actors.UpdateActor(ctx, actor)
 	if err != nil {
 		c.log.Errorf("change actor error: %s", err.Error())
 		return fmt.Errorf("change actor error: %s", err.Error())
@@ -165,7 +167,7 @@ func (c *Core) DeleteFilm(ctx context.Context, filmId uint64) (bool, error) {
 }
 
 func (c *Core) FindActors(ctx context.Context, page uint64, perPage uint64) ([]models.ActorResponse, error) {
-	actors, err := c.films.FindActors(ctx, page, perPage)
+	actors, err := c.actors.FindActors(ctx, page, perPage)
 	if err != nil {
 		c.log.Errorf("find actors error: %s", err.Error())
 		return nil, fmt.Errorf("find actors error: %s", err.Error())
@@ -175,7 +177,7 @@ func (c *Core) FindActors(ctx context.Context, page uint64, perPage uint64) ([]m
 }
 
 func (c *Core) DeleteActor(ctx context.Context, actorId uint64) error {
-	err := c.films.DeleteActor(ctx, actorId)
+	err := c.actors.DeleteActor(ctx, actorId)
 	if err != nil {
 		c.log.Errorf("delete actor error: %s", err.Error())
 		return fmt.Errorf("delete actor error: %s", err.Error())
