@@ -19,6 +19,7 @@ const (
 	FilmRatingEnd        = 10
 	ActorNameBegin       = 1
 	ActorNameEnd         = 150
+	MaxRetries           = 3
 )
 
 func HashPassword(password string) []byte {

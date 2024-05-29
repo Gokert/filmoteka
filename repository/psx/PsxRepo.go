@@ -5,16 +5,18 @@ import (
 	"database/sql"
 	"errors"
 	"filmoteka/configs"
+	utils "filmoteka/pkg"
 	"filmoteka/pkg/models"
 	"fmt"
 	_ "github.com/jackc/pgx/stdlib"
 	"github.com/sirupsen/logrus"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type PsxRepo struct {
-	DB *sql.DB
+	db *sql.DB
 }
 
 func GetFilmRepo(config *configs.DbPsxConfig, log *logrus.Logger) (*PsxRepo, error) {
@@ -25,17 +27,39 @@ func GetFilmRepo(config *configs.DbPsxConfig, log *logrus.Logger) (*PsxRepo, err
 		log.Errorf("sql open error: %s", err.Error())
 		return nil, fmt.Errorf("get user repo err: %s", err.Error())
 	}
-	log.Info(dsn, 4334)
 
-	err = db.Ping()
-	if err != nil {
-		log.Errorf("sql ping error: %s", err.Error())
-		return nil, fmt.Errorf("get user repo error: %s", err.Error())
+	repo := &PsxRepo{db: db}
+
+	errs := make(chan error)
+	go func() {
+		errs <- repo.pingDb(3, log)
+	}()
+
+	if err := <-errs; err != nil {
+		log.Error(err.Error())
+		return nil, err
 	}
 	db.SetMaxOpenConns(config.MaxOpenConns)
 
 	log.Info("Postgres created successful on ", config.Port)
-	return &PsxRepo{DB: db}, nil
+	return repo, nil
+}
+func (repo *PsxRepo) pingDb(timer uint32, log *logrus.Logger) error {
+	var err error
+	var retries int
+
+	for retries < utils.MaxRetries {
+		err = repo.db.Ping()
+		if err == nil {
+			return nil
+		}
+
+		retries++
+		log.Errorf("sql ping error: %s", err.Error())
+		time.Sleep(time.Duration(timer) * time.Second)
+	}
+
+	return fmt.Errorf("sql max pinging error: %s", err.Error())
 }
 
 func (repo *PsxRepo) GetFilms(ctx context.Context, request *models.FindFilmRequest) (*[]models.FilmItem, error) {
@@ -103,7 +127,7 @@ func (repo *PsxRepo) GetFilms(ctx context.Context, request *models.FindFilmReque
 	s.WriteString("OFFSET $" + strconv.Itoa(paramNum) + " LIMIT $" + strconv.Itoa(paramNum+1))
 	params = append(params, request.Page, request.PerPage)
 
-	rows, err := repo.DB.QueryContext(ctx, s.String(), params...)
+	rows, err := repo.db.QueryContext(ctx, s.String(), params...)
 	if err != nil {
 		return nil, fmt.Errorf("find film err: %s", err.Error())
 	}
@@ -155,7 +179,7 @@ func (repo *PsxRepo) SearchFilms(ctx context.Context, titleFilm string, nameActo
 	s.WriteString("OFFSET $" + strconv.Itoa(count+1) + " LIMIT $" + strconv.Itoa(count+2) + " ")
 	params = append(params, page, perPage)
 
-	rows, err := repo.DB.QueryContext(ctx, s.String(), params...)
+	rows, err := repo.db.QueryContext(ctx, s.String(), params...)
 	if err != nil {
 		return nil, fmt.Errorf("find film error: %s", err.Error())
 	}
@@ -174,7 +198,7 @@ func (repo *PsxRepo) SearchFilms(ctx context.Context, titleFilm string, nameActo
 }
 
 func (repo *PsxRepo) FindActors(ctx context.Context, page uint64, perPage uint64) ([]models.ActorResponse, error) {
-	rows, err := repo.DB.QueryContext(ctx, `
+	rows, err := repo.db.QueryContext(ctx, `
 		SELECT
 			actor.id,
 			actor.name,
@@ -239,7 +263,7 @@ func (repo *PsxRepo) FindActors(ctx context.Context, page uint64, perPage uint64
 }
 
 func (repo *PsxRepo) FindFilmsByActor(ctx context.Context, actorId uint64) ([]models.FilmItem, error) {
-	rows, err := repo.DB.QueryContext(ctx, "SELECT film.id, film.title, film,info, film.release_date FROM film LEFT JOIN actor_in_film ON actor_in_film.id_film = film.id LEFT JOIN actor ON actor_in_film.id_actor = actor.id WHERE actor.id = $1", actorId)
+	rows, err := repo.db.QueryContext(ctx, "SELECT film.id, film.title, film,info, film.release_date FROM film LEFT JOIN actor_in_film ON actor_in_film.id_film = film.id LEFT JOIN actor ON actor_in_film.id_actor = actor.id WHERE actor.id = $1", actorId)
 	if err != nil {
 		return nil, fmt.Errorf("sql request error: %s", err.Error())
 	}
@@ -262,7 +286,7 @@ func (repo *PsxRepo) FindFilmsByActor(ctx context.Context, actorId uint64) ([]mo
 func (repo *PsxRepo) GetRelationByFilmId(ctx context.Context, filmId uint64) ([]uint64, error) {
 	var ids []uint64
 
-	rows, err := repo.DB.QueryContext(ctx, `SELECT actor_in_film.id_actor FROM actor_in_film WHERE actor_in_film.id_film=$1`, filmId)
+	rows, err := repo.db.QueryContext(ctx, `SELECT actor_in_film.id_actor FROM actor_in_film WHERE actor_in_film.id_film=$1`, filmId)
 	if err != nil {
 		return nil, fmt.Errorf("sql request find relation actors error: %s", err.Error())
 	}
@@ -283,7 +307,7 @@ func (repo *PsxRepo) GetRelationByFilmId(ctx context.Context, filmId uint64) ([]
 func (repo *PsxRepo) GetRelationByActorId(ctx context.Context, actorId uint64) ([]uint64, error) {
 	var ids []uint64
 
-	rows, err := repo.DB.QueryContext(ctx, `SELECT actor_in_film.id_film FROM actor_in_film WHERE actor_in_film.id_actor=$1`, actorId)
+	rows, err := repo.db.QueryContext(ctx, `SELECT actor_in_film.id_film FROM actor_in_film WHERE actor_in_film.id_actor=$1`, actorId)
 	if err != nil {
 		return nil, fmt.Errorf("sql request find relation films error: %s", err.Error())
 	}
@@ -302,7 +326,7 @@ func (repo *PsxRepo) GetRelationByActorId(ctx context.Context, actorId uint64) (
 }
 
 func (repo *PsxRepo) DeleteRelation(ctx context.Context, filmId uint64, actorId uint64) error {
-	_, err := repo.DB.QueryContext(ctx, `DELETE FROM actor_in_film WHERE id_actor=$1 AND id_film=$2`, actorId, filmId)
+	_, err := repo.db.QueryContext(ctx, `DELETE FROM actor_in_film WHERE id_actor=$1 AND id_film=$2`, actorId, filmId)
 	if err != nil {
 		return fmt.Errorf("sql delete relation error: %s", err.Error())
 	}
@@ -311,7 +335,7 @@ func (repo *PsxRepo) DeleteRelation(ctx context.Context, filmId uint64, actorId 
 }
 
 func (repo *PsxRepo) InsertRelation(ctx context.Context, filmId uint64, actorId uint64) error {
-	result, err := repo.DB.ExecContext(ctx, `INSERT INTO actor_in_film (id_actor, id_film) VALUES ($1, $2)`, actorId, filmId)
+	result, err := repo.db.ExecContext(ctx, `INSERT INTO actor_in_film (id_actor, id_film) VALUES ($1, $2)`, actorId, filmId)
 	if err != nil && result != nil {
 		return fmt.Errorf("sql insert relation error: %s", err.Error())
 	}
@@ -382,7 +406,7 @@ func (repo *PsxRepo) UpdateFilm(ctx context.Context, film *models.FilmRequest) e
 		return fmt.Errorf("not have params")
 	}
 
-	_, err := repo.DB.QueryContext(ctx, s.String(), params...)
+	_, err := repo.db.QueryContext(ctx, s.String(), params...)
 	if err != nil {
 		return fmt.Errorf("update film error: %s", err.Error())
 	}
@@ -430,7 +454,7 @@ func (repo *PsxRepo) UpdateFilm(ctx context.Context, film *models.FilmRequest) e
 }
 
 func (repo *PsxRepo) DeleteFilm(ctx context.Context, filmId uint64) (bool, error) {
-	_, err := repo.DB.ExecContext(ctx, "DELETE FROM film "+
+	_, err := repo.db.ExecContext(ctx, "DELETE FROM film "+
 		"WHERE film.id = $1", filmId)
 	if err != nil {
 		return false, fmt.Errorf("remove favorite film error: %s", err.Error())
@@ -440,7 +464,7 @@ func (repo *PsxRepo) DeleteFilm(ctx context.Context, filmId uint64) (bool, error
 }
 
 func (repo *PsxRepo) DeleteActor(ctx context.Context, actorId uint64) error {
-	_, err := repo.DB.ExecContext(ctx, "DELETE FROM actor WHERE actor.id = $1", actorId)
+	_, err := repo.db.ExecContext(ctx, "DELETE FROM actor WHERE actor.id = $1", actorId)
 	if err != nil {
 		return fmt.Errorf("sql exec error: %s", err.Error())
 	}
@@ -449,7 +473,7 @@ func (repo *PsxRepo) DeleteActor(ctx context.Context, actorId uint64) error {
 }
 
 func (repo *PsxRepo) AddFilm(ctx context.Context, film *models.FilmRequest) (uint64, error) {
-	err := repo.DB.QueryRowContext(ctx, "INSERT INTO film(title, info, release_date, rating) VALUES($1, $2, $3, $4) RETURNING id",
+	err := repo.db.QueryRowContext(ctx, "INSERT INTO film(title, info, release_date, rating) VALUES($1, $2, $3, $4) RETURNING id",
 		film.Title, film.Info, film.ReleaseDate, film.Rating).Scan(&film.Id)
 	if err != nil {
 		return 0, fmt.Errorf("insert film err: %s", err.Error())
@@ -459,7 +483,7 @@ func (repo *PsxRepo) AddFilm(ctx context.Context, film *models.FilmRequest) (uin
 }
 
 func (repo *PsxRepo) AddActor(ctx context.Context, actor *models.ActorItem) (uint64, error) {
-	err := repo.DB.QueryRowContext(ctx, "INSERT INTO actor(name, gen, birthdate) VALUES($1, $2, $3) RETURNING id", actor.Name, actor.Gender, actor.Birthday).Scan(&actor.Id)
+	err := repo.db.QueryRowContext(ctx, "INSERT INTO actor(name, gen, birthdate) VALUES($1, $2, $3) RETURNING id", actor.Name, actor.Gender, actor.Birthday).Scan(&actor.Id)
 	if err != nil {
 		return 0, fmt.Errorf("add actor error: %s", err.Error())
 	}
@@ -519,7 +543,7 @@ func (repo *PsxRepo) UpdateActor(ctx context.Context, actor *models.ActorRequest
 		return fmt.Errorf("not have params")
 	}
 
-	_, err := repo.DB.Query(s.String(), params...)
+	_, err := repo.db.Query(s.String(), params...)
 	if err != nil {
 		return fmt.Errorf("update actor error: %s", err.Error())
 	}
@@ -584,7 +608,7 @@ func (repo *PsxRepo) AddActorsForFilm(ctx context.Context, filmId uint64, actors
 		params = append(params, actor)
 	}
 
-	reasult, err := repo.DB.ExecContext(ctx, s.String(), params...)
+	reasult, err := repo.db.ExecContext(ctx, s.String(), params...)
 	if err != nil && reasult != nil {
 		return fmt.Errorf("add film actors error: %w", err)
 	}
@@ -594,7 +618,7 @@ func (repo *PsxRepo) AddActorsForFilm(ctx context.Context, filmId uint64, actors
 func (repo *PsxRepo) GetUser(ctx context.Context, login string, password []byte) (*models.UserItem, bool, error) {
 	post := &models.UserItem{}
 
-	err := repo.DB.QueryRowContext(ctx, "SELECT profile.id, profile.login, profile.role FROM profile "+
+	err := repo.db.QueryRowContext(ctx, "SELECT profile.id, profile.login, profile.role FROM profile "+
 		"WHERE profile.login = $1 AND profile.password = $2 ", login, password).Scan(&post.Id, &post.Login, &post.Role)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -609,7 +633,7 @@ func (repo *PsxRepo) GetUser(ctx context.Context, login string, password []byte)
 func (repo *PsxRepo) FindUser(ctx context.Context, login string) (bool, error) {
 	post := &models.UserItem{}
 
-	err := repo.DB.QueryRowContext(ctx,
+	err := repo.db.QueryRowContext(ctx,
 		"SELECT login FROM profile "+
 			"WHERE login = $1", login).Scan(&post.Login)
 	if err != nil {
@@ -624,7 +648,7 @@ func (repo *PsxRepo) FindUser(ctx context.Context, login string) (bool, error) {
 
 func (repo *PsxRepo) CreateUser(ctx context.Context, login string, password []byte) error {
 	var userID uint64
-	err := repo.DB.QueryRowContext(ctx, "INSERT INTO profile(login, role, password) VALUES($1, $2, $3) RETURNING id", login, "user", password).Scan(&userID)
+	err := repo.db.QueryRowContext(ctx, "INSERT INTO profile(login, role, password) VALUES($1, $2, $3) RETURNING id", login, "user", password).Scan(&userID)
 	if err != nil {
 		return fmt.Errorf("create user error: %s", err.Error())
 	}
@@ -635,7 +659,7 @@ func (repo *PsxRepo) CreateUser(ctx context.Context, login string, password []by
 func (repo *PsxRepo) GetUserId(ctx context.Context, login string) (uint64, error) {
 	var userID uint64
 
-	err := repo.DB.QueryRowContext(ctx,
+	err := repo.db.QueryRowContext(ctx,
 		"SELECT profile.id FROM profile WHERE profile.login = $1", login).Scan(&userID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -650,7 +674,7 @@ func (repo *PsxRepo) GetUserId(ctx context.Context, login string) (uint64, error
 func (repo *PsxRepo) GetRole(ctx context.Context, userId uint64) (string, error) {
 	var roleName string
 
-	err := repo.DB.QueryRowContext(ctx, "SELECT profile.role FROM profile  WHERE profile.id = $1", userId).Scan(&roleName)
+	err := repo.db.QueryRowContext(ctx, "SELECT profile.role FROM profile  WHERE profile.id = $1", userId).Scan(&roleName)
 	if err != nil {
 		return "", fmt.Errorf("get user role err: %s", err.Error())
 	}

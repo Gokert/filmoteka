@@ -17,7 +17,7 @@ import (
 type Api struct {
 	log  *logrus.Logger
 	mx   *http.ServeMux
-	core usecase.ICore
+	core *usecase.Core
 }
 
 func GetApi(core *usecase.Core, log *logrus.Logger) *Api {
@@ -27,21 +27,27 @@ func GetApi(core *usecase.Core, log *logrus.Logger) *Api {
 		mx:   http.NewServeMux(),
 	}
 
+	md := middleware.Middleware{
+		Lg:       log,
+		Sessions: core.Sessions,
+		Profiles: core.Profiles,
+	}
+
 	api.mx.HandleFunc("/signin", api.Signin)
 	api.mx.HandleFunc("/signup", api.Signup)
 	api.mx.HandleFunc("/logout", api.Logout)
 	api.mx.HandleFunc("/authcheck", api.AuthAccept)
 
 	api.mx.HandleFunc("/api/v1/actors", api.FindActors)
-	api.mx.Handle("/api/v1/actors/add", middleware.AuthCheck(middleware.CheckRole(http.HandlerFunc(api.AddActor), core, log), core, log))
-	api.mx.Handle("/api/v1/actors/update", middleware.AuthCheck(middleware.CheckRole(http.HandlerFunc(api.UpdateActor), core, log), core, log))
-	api.mx.Handle("/api/v1/actors/delete", middleware.AuthCheck(middleware.CheckRole(http.HandlerFunc(api.DeleteActor), core, log), core, log))
+	api.mx.Handle("/api/v1/actors/add", md.AuthCheck(md.CheckRole(http.HandlerFunc(api.AddActor))))
+	api.mx.Handle("/api/v1/actors/update", md.AuthCheck(md.CheckRole(http.HandlerFunc(api.UpdateActor))))
+	api.mx.Handle("/api/v1/actors/delete", md.AuthCheck(md.CheckRole(http.HandlerFunc(api.DeleteActor))))
 
 	api.mx.HandleFunc("/api/v1/films", api.FindFilms)
 	api.mx.HandleFunc("/api/v1/films/search", api.SearchFilms)
-	api.mx.Handle("/api/v1/films/add", middleware.AuthCheck(middleware.CheckRole(http.HandlerFunc(api.AddFilm), core, log), core, log))
-	api.mx.Handle("/api/v1/films/update", middleware.AuthCheck(middleware.CheckRole(http.HandlerFunc(api.UpdateFilm), core, log), core, log))
-	api.mx.Handle("/api/v1/films/delete", middleware.AuthCheck(middleware.CheckRole(http.HandlerFunc(api.DeleteFilm), core, log), core, log))
+	api.mx.Handle("/api/v1/films/add", md.AuthCheck(md.CheckRole(http.HandlerFunc(api.AddFilm))))
+	api.mx.Handle("/api/v1/films/update", md.AuthCheck(md.CheckRole(http.HandlerFunc(api.UpdateFilm))))
+	api.mx.Handle("/api/v1/films/delete", md.AuthCheck(md.CheckRole(http.HandlerFunc(api.DeleteFilm))))
 
 	return api
 }
@@ -96,7 +102,7 @@ func (a *Api) Signin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, found, err := a.core.FindUserAccount(r.Context(), request.Login, request.Password)
+	_, found, err := a.core.Profiles.FindUserAccount(r.Context(), request.Login, request.Password)
 	if err != nil {
 		a.log.Error("Signin error: ", err.Error())
 		response.Status = http.StatusInternalServerError
@@ -110,7 +116,7 @@ func (a *Api) Signin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session, _ := a.core.CreateSession(r.Context(), request.Login)
+	session, _ := a.core.Sessions.CreateSession(r.Context(), request.Login)
 	cookie := &http.Cookie{
 		Name:     "session_id",
 		Value:    session.SID,
@@ -161,7 +167,7 @@ func (a *Api) Signup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	found, err := a.core.FindUserByLogin(r.Context(), request.Login)
+	found, err := a.core.Profiles.FindUserByLogin(r.Context(), request.Login)
 	if err != nil {
 		a.log.Error("Signup error: ", err.Error())
 		response.Status = http.StatusInternalServerError
@@ -175,7 +181,7 @@ func (a *Api) Signup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = a.core.CreateUserAccount(r.Context(), request.Login, request.Password)
+	err = a.core.Profiles.CreateUserAccount(r.Context(), request.Login, request.Password)
 	if err != nil {
 		a.log.Error("create user error: ", err.Error())
 		response.Status = http.StatusBadRequest
@@ -224,7 +230,7 @@ func (a *Api) AddFilm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = a.core.AddFilm(r.Context(), &request, request.Actors)
+	_, err = a.core.Films.AddFilm(r.Context(), &request, request.Actors)
 	if err != nil {
 		response.Status = http.StatusInternalServerError
 		httpResponse.SendResponse(w, r, &response, a.log)
@@ -272,7 +278,7 @@ func (a *Api) AddActor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = a.core.AddActor(r.Context(), &request)
+	_, err = a.core.Actors.AddActor(r.Context(), &request)
 	if err != nil {
 		response.Status = http.StatusInternalServerError
 		httpResponse.SendResponse(w, r, &response, a.log)
@@ -319,7 +325,7 @@ func (a *Api) SearchFilms(w http.ResponseWriter, r *http.Request) {
 		pageSize = 8
 	}
 
-	films, err := a.core.SearchFilms(r.Context(), titleFilm, nameActor, page, pageSize)
+	films, err := a.core.Films.SearchFilms(r.Context(), titleFilm, nameActor, page, pageSize)
 	if err != nil {
 		response.Status = http.StatusInternalServerError
 		httpResponse.SendResponse(w, r, &response, a.log)
@@ -398,7 +404,7 @@ func (a *Api) FindFilms(w http.ResponseWriter, r *http.Request) {
 		Order:           order,
 	}
 
-	films, err := a.core.GetFilms(r.Context(), request)
+	films, err := a.core.Films.GetFilms(r.Context(), request)
 	if err != nil {
 		return
 	}
@@ -440,7 +446,7 @@ func (a *Api) DeleteFilm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = a.core.DeleteFilm(r.Context(), filmId)
+	_, err = a.core.Films.DeleteFilm(r.Context(), filmId)
 	if err != nil {
 		response.Status = http.StatusInternalServerError
 		httpResponse.SendResponse(w, r, &response, a.log)
@@ -488,7 +494,7 @@ func (a *Api) UpdateFilm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = a.core.UpdateFilm(r.Context(), &request)
+	err = a.core.Films.UpdateFilm(r.Context(), &request)
 	if err != nil {
 		response.Status = http.StatusInternalServerError
 		httpResponse.SendResponse(w, r, &response, a.log)
@@ -529,7 +535,7 @@ func (a *Api) FindActors(w http.ResponseWriter, r *http.Request) {
 		perSize = 8
 	}
 
-	actors, err := a.core.FindActors(r.Context(), page, perSize)
+	actors, err := a.core.Actors.FindActors(r.Context(), page, perSize)
 	if err != nil {
 		response.Status = http.StatusInternalServerError
 		httpResponse.SendResponse(w, r, &response, a.log)
@@ -569,7 +575,7 @@ func (a *Api) DeleteActor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = a.core.DeleteActor(r.Context(), actorId)
+	err = a.core.Actors.DeleteActor(r.Context(), actorId)
 	if err != nil {
 		response.Status = http.StatusInternalServerError
 		httpResponse.SendResponse(w, r, &response, a.log)
@@ -617,7 +623,7 @@ func (a *Api) UpdateActor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = a.core.UpdateActor(r.Context(), &request)
+	err = a.core.Actors.UpdateActor(r.Context(), &request)
 	if err != nil {
 		response.Status = http.StatusInternalServerError
 		httpResponse.SendResponse(w, r, &response, a.log)
@@ -654,7 +660,7 @@ func (a *Api) Logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = a.core.KillSession(r.Context(), cookie.Value)
+	err = a.core.Sessions.KillSession(r.Context(), cookie.Value)
 	if err != nil {
 		response.Status = http.StatusInternalServerError
 		httpResponse.SendResponse(w, r, &response, a.log)
@@ -690,7 +696,7 @@ func (a *Api) AuthAccept(w http.ResponseWriter, r *http.Request) {
 
 	session, err := r.Cookie("session_id")
 	if err == nil && session != nil {
-		authorized, _ = a.core.FindActiveSession(r.Context(), session.Value)
+		authorized, _ = a.core.Sessions.FindActiveSession(r.Context(), session.Value)
 	}
 	a.log.Warning("API", authorized)
 	if !authorized {
@@ -699,7 +705,7 @@ func (a *Api) AuthAccept(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	login, err := a.core.GetUserName(r.Context(), session.Value)
+	login, err := a.core.Sessions.GetUserName(r.Context(), session.Value)
 	if err != nil {
 		a.log.Error("auth accept error: ", err.Error())
 		response.Status = http.StatusInternalServerError
